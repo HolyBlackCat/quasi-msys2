@@ -1,8 +1,15 @@
 # --- CONFIG ---
 
+# URL of the repository database, such as `http://repo.msys2.org/mingw/x86_64/mingw64.db`.
 REPO_DB_URL := http://repo.msys2.org/mingw/x86_64/mingw64.db
+
+# Suffix of the package archives, such as `-any.pkg.tar.xz`.
 REPO_PACKAGE_ARRCHIVE_SUFFIX := -any.pkg.tar.xz
 
+# Extract packages here.
+ROOT_DIR := root
+
+# Download archives here.
 CACHE_DIR := cache
 
 # If nonzero, don't delete the original database downloaded from the repo, and the temporary files created when parsing it.
@@ -216,41 +223,128 @@ override database_query_full_name = $(join $1,$(addprefix -,$(call database_quer
 # --- CACHE INTERNALS ---
 
 ifeq ($(wildcard $(CACHE_DIR)),)
-$(call safe_shell_exec,mkdir -p 'CACHE_DIR')
+$(call safe_shell_exec,mkdir -p '$(CACHE_DIR)')
 endif
+
+ifeq ($(wildcard $(ROOT_DIR)),)
+$(call safe_shell_exec,mkdir -p '$(ROOT_DIR)')
+endif
+
+# A prefix for unfinished downloads.
+override cache_unfinished_prefix = --unfinished--
 
 # $1 is the url, relative to the repo url.
 # If the is missing in the cache, downloads it.
-override cache_download_file_if_missing = $(if $(wildcard $(CACHE_DIR)/$(notdir $1)),$(info Using cached '$(notdir $1)'.),$(call safe_shell_exec,$(call use_wget,$(dir $(REPO_DB_URL))$1,$(CACHE_DIR)/$(notdir $1))))
+override cache_download_file_if_missing = \
+	$(if $(wildcard $(CACHE_DIR)/$(notdir $1)),$(call print_log,Using cached '$(notdir $1)'),$(call safe_shell_exec,$(call use_wget,$(dir $(REPO_DB_URL))$1,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1))))\
+	$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)' '$(CACHE_DIR)/$(notdir $1)')
+
+# Deletes unfinished downloads.
+override cache_purge_unfinished = $(foreach x,$(wildcard $(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f '$x'))
 
 # --- CACHE INTERFACE ---
 
 # $1 is a list of packages, with versions.
-# If it's not caches, downloads it to the cache.
-override cache_want_packages = $(foreach x,$1,$(if $(findstring ??,$x),$(error Can't add package to cache: unknown package: '$x'),$(call cache_download_file_if_missing,$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX))))
+# If they are not cached, downloads them.
+override cache_want_packages = \
+	$(cache_purge_unfinished)\
+	$(foreach x,$1,$(if $(findstring ??,$x),\
+		$(error Can't add package to cache: unknown package: '$x'),\
+		$(call cache_download_file_if_missing,$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX))\
+	))
+
+# $1 is a list of packages, with versions.
+# Outputs the list of contained files, without folders, with spaces replaced with `<`.
+# If they are not cached, downloads them.
+override cache_list_pkg_files = $(call cache_want_packages,$1)$(foreach x,$1,$(call safe_shell,tar -tf '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'))
 
 
 # --- INDEX INTERNALS ---
 
-override index_explicit_folder := index/explicit
-override index_all_folder := index/all
+override index_dir := index
+override index_pattern := $(index_dir)/*
 
-override index_explicit_pattern := $(index_explicit_folder)/*
-override index_all_pattern := $(index_all_folder)/*
+ifeq ($(wildcard $(index_dir)),)
+$(call safe_shell_exec,mkdir -p '$(index_dir)')
+endif
+
+# A prefix for broken packages.
+override index_broken_prefix := --broken--
+
+# Causes an error if the package $1 is already installed, or is broken.
+# $1 has to include the version.
+override index_stop_if_single_pkg_installed = \
+	$(if $(wildcard $(index_dir)/$1),$(error Package '$1' is already installed))\
+	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken, run 'make purge-broken' and try again))
+
+# Causes an error if the package $1 is not installed, or is broken.
+# $1 has to include the version.
+# Note that both this function and `index_stop_if_single_pkg_installed` cause an error if the package is broken.
+override index_stop_if_single_pkg_not_installed = \
+	$(if $(wildcard $(index_dir)/$1),,$(error Package '$1' is not installed))\
+	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken, run 'make purge-broken' and try again))
+
+# Uninstalls all packages that have the $(index_broken_prefix) prefix.
+override index_purge_broken = \
+	$(foreach x,$(wildcard $(index_dir)/$(index_broken_prefix)*),\
+    	$(foreach y,$(call index_list_pkg_files,$(patsubst $(index_dir)/%,%,$x)),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$y)' || true))\
+    	$(call safe_shell_exec,rm -f '$x')\
+		$(call print_log,Uninstalled '$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$x)')\
+	)\
+	$(call safe_shell_exec,find $(ROOT_DIR) -mindepth 1 -type d -empty -delete)
 
 
-# --- INDEX_INTERFACE ---
+# $1 is a single package, with version.
+# It's installed, without checking dependencies.
+# Make sure it's not already installed!
+# It's downloaded, unless it's already cached.
+override index_force_install_single_pkg = $(call index_stop_if_single_pkg_installed,$1)\
+	$(foreach x,$(cache_list_pkg_files),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
+	$(call print_log,Extracting '$1'...)\
+	$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(CACHE_DIR)/$1$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*')\
+	$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$1' '$(index_dir)/$1')\
+	$(call print_log,Installed '$1')
 
-# Expands to a list of all explicitly installed packages.
-override index_list_explicitly_installed = $(patsubst $(subst *,%,$(index_explicit_pattern)),%,$(wildcard $(index_explicit_pattern)))
-# Expands to a list of all packages.
-override index_list_all_installed = $(patsubst $(subst *,%,$(index_all_pattern)),%,$(wildcard $(index_all_pattern)))
+# Installs a list of packages $1 (which has to include versions), without considering dependencies.
+override index_force_install = $(foreach x,$1,$(call index_force_install_single_pkg,$x))
+
+# Uninstalls a list of packages $1 (which has to include versions), without considering dependencies.
+override index_force_uninstall = \
+	$(foreach x,$1,\
+		$(call index_stop_if_single_pkg_not_installed,$x)\
+		$(call safe_shell_exec,mv -f '$(index_dir)/$1' '$(index_dir)/$(index_broken_prefix)$1')\
+	)\
+	$(index_purge_broken)
+
+
+
+# --- INDEX INTERFACE ---
+
+# Expands to a list of all installed packages, with versions.
+override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$(wildcard $(index_pattern)))
+
+# Returns a list of files that belong to installed packages listed in $1.
+# $1 has to include package versions.
+# Spaces in the resulting list are separated with `<`.
+override index_list_pkg_files = $(foreach x,$1,$(call safe_shell,cat '$(index_dir)/$x'))
+
 
 
 # --- TARGETS ---
 
 # A parameter.
 p = $(error The parameter `p` is not set)
+
+# PACKAGE DATABASE
+
+# Downloads a new database. Backups the old one as `database.mk.bak`
+.PHONY: update
+update:
+	$(if $(wildcard database.mk),$(call safe_shell_exec,mv -f 'database.mk' 'database.mk.bak' || true))
+	$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')
+	$(call safe_shell_exec,rm -f '$(database_tmp_file)')
+	$(database_query_empty)
+	@true
 
 # Lists all available packages in the repo, without versions.
 .PHONY: list-all
@@ -276,38 +370,95 @@ clean-db:
 	@rm -f database.mk database.mk.bak $(database_tmp_file)
 	@rm -rf '$(database_tmp_dir)'
 
-# Downloads a new database. Backups the old one as `database.mk.bak`
-.PHONY: update
-update:
-	$(if $(wildcard database.mk),$(call safe_shell_exec,mv -f 'database.mk' 'database.mk.bak' || true))
-	$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')
-	$(call safe_shell_exec,rm -f '$(database_tmp_file)')
-	$(database_query_empty)
+# PACKAGE CACHE
+
+# Returns a list of cached packages, with versions.
+.PHONY: list-cached
+list-cached:
+	$(foreach x,$(patsubst $(CACHE_DIR)/%$(REPO_PACKAGE_ARRCHIVE_SUFFIX),%,$(filter %$(REPO_PACKAGE_ARRCHIVE_SUFFIX),$(wildcard $(CACHE_DIR)/*))),$(info $x))
 	@true
 
+# Removes incomplete downloads from the cache.
+.PHONY: cache-purge-unfinished
+cache-purge-unfinished:
+	$(cache_purge_unfinished)
+	@true
+
+# Cleans the cache.
+.PHONY: cache-clean-all
+cache-clean-all:
+	$(foreach x,$(wildcard $(CACHE_DIR)/*),$(call safe_shell_exec,rm -f '$x'))
+	@true
+
+
 # `p` is a list of packages, without versions. Downloads them, if they are not already in the cache.
-.PHONY: cache
-cache:
+.PHONY: cache-download
+cache-download:
 	$(call cache_want_packages,$(call database_query_full_name,$p))
 	@true
 
+# Same as `cache-download`, but you need to specify package versions manually.
+.PHONY: cache-download-ver
+cache-download-ver:
+	$(call cache_want_packages,$p)
+	@true
 
-.DEFAULT_GOAL := help
-.PHONY: help
-help:
-	$(error No actions specified)
+# `p` is a list of packages, without versions. Outputs the list of files contained in them.
+# Downloads them, if they are not already in the cache.
+.PHONY: cache-list-pkg-contents
+cache-list-pkg-contents:
+	$(foreach x,$(call cache_list_pkg_files,$(call database_query_full_name,$p)),$(info $(subst <, ,$x)))
+	@true
 
-.PHONY: print_all
-print_all:
-#	@echo '$(call database_query_deps,mingw-w64-x86_64-libc++)'
-#	@echo '$(call database_query_full_name,$(call database_query_deps,mingw-w64-x86_64-libc++))'
-	@echo '$(index_list_all_installed)'
+# PACKAGE INDEX
+
+# Lists all installed packages, with versions.
+.PHONY: list-installed
+list-installed:
+	$(foreach x,$(index_list_all_installed),$(info $x))
+	@true
+
+# `p` is a list of installed packages, with versions. Returns the list of files that belong to those packages.
+.PHONY: list-pkg-contents
+list-pkg-contents:
+	$(foreach x,$(call index_list_pkg_files,$p),$(info $(subst <, ,$x)))
+	@true
+
+# PACKAGE INSTALLATION
+
+# `p` is a list of packages, without versions.
+# Installs those packages, without considering their dependencies.
+.PHONY: direct-install
+direct-install:
+	$(call index_force_install,$(call database_query_full_name,$p))
+	@true
+
+# Same as `direct-install`, but you need to specify package versions manually.
+.PHONY: direct-install-ver
+direct-install-ver:
+	$(call index_force_install,$p)
+	@true
+
+# `p` is a list of packages, with versions.
+# Uninstalls those packages, without considering their dependencies.
+.PHONY: direct-uninstall-ver
+direct-uninstall:
+	$(call index_force_uninstall,$p)
+	@true
 
 
-# .PHONY: print_all
-# print_all: $(flags_dir)mingw-w64-x86_64-SDL2_image
+# BROKEN PACKAGES
 
+# Lists broken packages.
+# A package can become broken if you interrupt its installation or deinstallation
+# Run `purge-broken` to destroy those.
+.PHONY: list-broken
+list-broken:
+	$(index_purge_broken)
+	@true
 
-
-# pkg_list: pkg_list_raw
-# 	grep pkg_list_raw -Poe '(?<=<a href=")[^"]*\.pkg\.[^"]*' >$@
+# Destroys broken packages.
+.PHONY: purge-broken
+purge-broken:
+	$(index_purge_broken)
+	@true

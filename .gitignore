@@ -5,4 +5,5 @@ root/**
 database.db
 database.mk
 database.mk.bak
+requested_packages.txt
 

@@ -6,6 +6,11 @@ REPO_DB_URL := http://repo.msys2.org/mingw/x86_64/mingw64.db
 # Suffix of the package archives, such as `-any.pkg.tar.xz`.
 REPO_PACKAGE_ARRCHIVE_SUFFIX := -any.pkg.tar.xz
 
+# A common prefix for all packages.
+# You don't have to set this variable, as it's only used for convenience,
+# to avoid typing long package names. (See notes at the end of `make help` for details.)
+REPO_PACKAGE_COMMON_PREFIX := mingw-w64-x86_64-
+
 # Extract packages here.
 ROOT_DIR := root
 
@@ -76,11 +81,13 @@ override stop_if_have_parameters = $(if $(p_is_set),$(error This action requires
 # If more than one parameter is specified...
 ifneq ($(filter-out 0 1,$(words $(MAKECMDGOALS))),)
 # If it's a database query, do nothing.
-# Otherwise, convert all targets after the first one to paramters. (Also create a list of fake empty recipes for those targets.)
+# Otherwise, convert all targets after the first one to paramters. Also replace `_` with a proper prefix.
+# Also create a list of fake empty recipes for those targets.
 $(if $(filter __database_%,$(MAKECMDGOALS)),,\
 	$(eval override p_is_set := y)\
 	$(eval override p := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))\
 	$(foreach x,$p,$(eval .PHONY: $x)$(eval $x: ; @true))\
+	$(eval override p := $(patsubst _%,$(REPO_PACKAGE_COMMON_PREFIX)%,$p))\
 	)
 endif
 
@@ -223,6 +230,14 @@ __database_list_all:
 	$(info $(FULL_PACKAGE_LIST))
 	@true
 
+# Verifies a list of packages.
+# Uses `__packages`.
+.PHONY: __database_verify
+__database_verify:
+	$(eval override _local_missing := $(sort $(filter-out $(FULL_PACKAGE_LIST), $(__packages))))
+	$(if $(_local_missing),$(error Following packages are not known: $(_local_missing)))
+	@true
+
 
 # --- DATABASE INTERFACE ---
 
@@ -231,6 +246,10 @@ override database_query_empty = $(call space,$(call invoke_database_process,__da
 
 # Returns a list of all available packages.
 override database_query_available = $(call invoke_database_process,__database_list_all)
+
+# Verifies a list of packages.
+# Causes an error on failure, expands to nothing.
+override database_query_verify = $(call invoke_database_process,__database_verify __packages='$1')
 
 # $1 is a list of package names, without versions.
 # Returns $1, with all dependencies added.
@@ -357,6 +376,56 @@ override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$
 override index_list_pkg_files = $(sort $(foreach x,$1,$(call safe_shell,cat '$(index_dir)/$x')))
 
 
+# --- PACKAGE MANAGEMENT INTERNALS ---
+
+# Requested packages will be saved to this file.
+override request_list_file := requested_packages.txt
+
+ifeq ($(wildcard $(request_list_file)),)
+$(call safe_shell_exec,touch '$(request_list_file)')
+endif
+
+# Writes a new list of requested packages (with versions) from $1.
+override pkg_set_request_list = $(call safe_shell_exec,echo >'$(request_list_file)' '$(sort $1)')
+
+# $1 is a list of packages, without versions. Emits an error if any packages in $1 are in the requested list.
+override pkg_stop_if_in_request_list = \
+	$(eval override _local_delta := $(sort $(filter $1,$(pkg_request_list))))\
+	$(if $(_local_delta),$(error Following packages are already requested: $(_local_delta)))
+
+# $1 is a list of packages, without versions. Emits an error if any packages in $1 are not in the requested list.
+override pkg_stop_if_not_in_request_list = \
+	$(eval override _local_delta := $(sort $(filter-out $(pkg_request_list),$1)))\
+	$(if $(_local_delta),$(error Following packages are already not requested: $(_local_delta)))
+
+# --- PACKAGE MANAGEMENT INTERFACE ---
+
+# Returns the list of requested packages.
+override pkg_request_list = $(call safe_shell,cat '$(request_list_file)')
+
+# Clears the request list.
+override pkg_request_list_reset = $(call pkg_set_request_list,)
+
+# Adds packages to the list of requested packages.
+# $1 is a list of packages without versions.
+override pkg_request_list_add = $(call database_query_verify,$1)$(call pkg_stop_if_in_request_list,$1)$(call pkg_set_request_list,$(pkg_request_list) $1)
+
+# Adds packages to the list of requested packages.
+# $1 is a list of packages without versions.
+override pkg_request_list_remove = $(call pkg_stop_if_not_in_request_list,$1)$(call pkg_set_request_list,$(call database_query_verify $1)$(call pkg_set_request_list,$(pkg_request_list) $1))
+
+# Computes the delta between the current state and the desired state.
+# Returns a list of packages with prefixes: `>` means a package should be installed, and `<` means it should be removed.
+#   Note that we do `$(foreach x,$(pkg_request_list) ...` rather than passing the entire list
+#   to `database_query_deps` to reduce the length of command-line parameters that are passed around.
+override pkg_compute_delta = \
+	$(eval override _state_cur := $(index_list_all_installed))\
+	$(eval override _state_target := $(sort $(foreach x,$(pkg_request_list),$(call database_query_full_name,$(call database_query_deps,$x)))))\
+	$(addprefix <,$(filter-out $(_state_target),$(_state_cur)))\
+	$(addprefix >,$(filter-out $(_state_cur),$(_state_target)))
+
+
+
 
 # --- TARGETS ---
 
@@ -406,7 +475,7 @@ $(call act, list-all \
 	@true
 
 # Downloads a new database. Backups the old one as `database.mk.bak`
-$(call act, update \
+$(call act, update-database \
 ,,Download a new database. The existing database will be backed up.)
 	$(if $(wildcard database.mk),$(call safe_shell_exec,mv -f 'database.mk' 'database.mk.bak' || true))
 	$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')
@@ -434,24 +503,77 @@ $(lf)A new database will be downloaded next time it is needed.)
 	@rm -rf '$(database_tmp_dir)'
 
 
-# PACKAGE INDEX
-$(call act_section, PACKAGE INDEX )
+# PACKAGE MANAGEMENT
+$(call act_section, PACKAGE MANAGEMENT )
 
 # Lists all installed packages, with versions.
-$(call act, list-installed \
-,,List all installed packages$(comma) with versions.)
+$(call act, list-ins \
+,,List all installed packages$(comma) with versions.$(lf)The list includes automatically installed dependencies.)
 	$(foreach x,$(index_list_all_installed),$(info $x))
 	@true
+
+# Lists all requested packages, without versions.
+$(call act, list-req \
+,,List all explicitly requested packages.)
+	$(foreach x,$(pkg_request_list),$(info $x))
+	@true
+
+# Prints the current delta, in a raw form.
+$(call act, delta \
+,,Prints a list of changes that should be applied to the installed packages to make sure\
+$(lf)that the latest versions of requested packages and their dependencies are installed.\
+$(lf)`+` prefix means the package should be installed$(comma)\
+$(lf)`-` prefix means the package should be uninstalled$(comma) and\
+$(lf)`>` prefix means the package should be updated.)
+	$(eval override _local_delta := $(pkg_compute_delta))
+	$(eval override _local_upd :=)
+	$(foreach x,$(_local_delta),$(if $(filter <%,$x),\
+		$(eval override _local_name_ver := $(patsubst <%,%,$x))\
+		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
+		$(foreach y,$(_local_delta),$(if $(filter 1,$(words $(sort $(_local_name) $(call strip_ver,$(patsubst >%,%,$y))))),\
+			$(eval override _local_upd += $(_local_name_ver)>$(subst >$(_local_name)-,,$y))\
+			$(eval override _local_delta := $(filter-out $x $y,$(_local_delta)))\
+		))\
+	))
+	$(foreach x,$(patsubst <%,%,$(filter <%,$(_local_delta))),$(info - $x))
+	$(foreach x,$(patsubst >%,%,$(filter >%,$(_local_delta))),$(info + $x))
+	$(foreach x,$(_local_upd),$(info > $(subst >, -> ,$x)))
+	@true
+
+# Prints the current delta, in a raw form.
+$(call act, delta-raw \
+,,Similar to `make delta`$(comma) but package update actions are printed$(lf)as pairs of removals and installations.)
+	$(eval override _local_delta := $(pkg_compute_delta))
+	$(foreach x,$(patsubst <%,%,$(filter <%,$(_local_delta))),$(info - $x))
+	$(foreach x,$(patsubst >%,%,$(filter >%,$(_local_delta))),$(info + $x))
+	@true
+
+# Adds packages (without versions) to the request list.
+$(call act, request \
+,packages,Request packages to be installed.$(lf)The packages and their dependencies will be\
+$(lf)installed next time 'make apply-delta' is called.)
+	$(call pkg_request_list_add,$p)
+	@true
+
+# Removes packages (without versions) from the request list.
+$(call act, undo-request \
+,packages,Request packages to not be installed.$(lf)The packages and any dependencies that are no longer needed\
+$(lf)will be uninstalled next time 'make apply-delta' is called.)
+	$(call pkg_request_list_remove,$p)
+	@true
+
+# Cleans the request list.
+$(call act, clean-requests \
+,,Clean the list of requested packages.)
+	$(call pkg_request_list_reset)
+	@true
+
 
 # Accepts a list of installed packages, with versions. Returns the list of files that belong to those packages.
 $(call act, list-pkg-contents \
 ,package-versions,List all files owned by the specified installed packages.)
 	$(foreach x,$(call index_list_pkg_files,$p),$(info $(subst <, ,$x)))
 	@true
-
-
-# PACKAGE INSTALLATION
-$(call act_section, PACKAGE INSTALLATION )
 
 # Accepts a list of packages, without versions.
 # Installs those packages, without considering their dependencies.
@@ -468,13 +590,13 @@ $(call act, unmanaged-install-ver \
 
 # `p` is a list of packages, with versions.
 # Uninstalls those packages, without considering their dependencies.
-$(call act, unmanaged-uninstall \
+$(call act, unmanaged-uninstall-ver \
 ,package-versions,Uninstall specified packages$(comma) without dependencies.$(lf)Normally you don't need to use this command$(comma) since its effects$(lf)might be undone automatically when invoking a non-unmanaged command.)
 	$(call index_force_uninstall,$p)
 	@true
 
 
-# PACKAGE INSTALLATION
+# BROKEN PACKAGES
 $(call act_section, BROKEN PACKAGES )
 
 # Lists broken packages.
@@ -530,3 +652,12 @@ $(call act, cache-list-pkg-contents \
 ,package-versions,Output a list of files contained in the specified cached packages.)
 	$(foreach x,$(call cache_list_pkg_files,$p),$(info $(subst <, ,$x)))
 	@true
+
+# NOTES
+$(call act_section, NOTES )
+
+$(if $(display_help),\
+	$(info When passing a package name to a command,)\
+	$(info you can use `_` instead of the `$(REPO_PACKAGE_COMMON_PREFIX)` prefix.)\
+	$(info )\
+	)

@@ -1,6 +1,8 @@
 cache/**
-index/**
 database/**
+index/**
+root/**
 database.db
 database.mk
 database.mk.bak
+

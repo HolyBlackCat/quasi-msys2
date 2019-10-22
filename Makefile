@@ -25,6 +25,11 @@ KEEP_UNPROCESSED_DATABASE := 0
 
 # Some constants.
 override space := $(strip) $(strip)
+override comma := ,
+override define lf :=
+$(strip)
+$(strip)
+endef
 
 # Same as `$(shell ...)`, but triggers a error on failure.
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
@@ -37,7 +42,7 @@ endif
 override safe_shell_exec = $(call space,$(call safe_shell,$1))
 
 # Downloads url $1 to file $2. Deletes the file on failure.
-override use_wget = $(call safe_shell_exec,wget '$1' -q -c --show-progress -O $2 || rm -f '$2')
+override use_wget = $(call safe_shell_exec,wget '$1' -q -c --show-progress -O '$2' || (rm -f '$2' && false))
 
 # Prints $1 to stderr.
 override print_log = $(call safe_shell_exec,echo >&2 '$(subst ','"'"',$1)')
@@ -49,14 +54,34 @@ override print_log = $(call safe_shell_exec,echo >&2 '$(subst ','"'"',$1)')
 override remove_suffix = $(subst <<<,,$(subst $1$(lastword $(subst $1, ,$2)<<<),<<<,$2<<<))
 
 
-# --- CHECK USAGE ---
+# --- PROCESS PARMETERS ---
 
+# A default target.
+.DEFAULT_GOAL := help
 ifeq ($(words $(MAKECMDGOALS)),0)
-$(error No actions specified)
-else ifneq ($(words $(MAKECMDGOALS)),1)
-# Stop if more than one target is specified, unless we have a `__database_*` target.
+# Note that this assignment doesn't make `make` execute the target, so we also need to set `.DEFAULT_GOAL`.
+MAKECMDGOALS := help
+endif
+
+override display_help :=
+ifneq ($(filter help,$(word 1,$(MAKECMDGOALS))),)
+override display_help := y
+endif
+
+override p_is_set :=
+override p = $(error No parameters specified)
+
+override stop_if_have_parameters = $(if $(p_is_set),$(error This action requires no parameters))
+
+# If more than one parameter is specified...
+ifneq ($(filter-out 0 1,$(words $(MAKECMDGOALS))),)
+# If it's a database query, do nothing.
+# Otherwise, convert all targets after the first one to paramters. (Also create a list of fake empty recipes for those targets.)
 $(if $(filter __database_%,$(MAKECMDGOALS)),,\
-	$(error More than one action specified))
+	$(eval override p_is_set := y)\
+	$(eval override p := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))\
+	$(foreach x,$p,$(eval .PHONY: $x)$(eval $x: ; @true))\
+	)
 endif
 
 
@@ -209,7 +234,7 @@ override database_query_available = $(call invoke_database_process,__database_li
 
 # $1 is a list of package names, without versions.
 # Returns $1, with all dependencies added.
-override database_query_deps = $(patsubst PKG@@%,%,$(filter PKG@@%,$(call invoke_database_process,__database_load $(addprefix PKG@@,$1))))
+override database_query_deps = $(sort $(patsubst PKG@@%,%,$(filter PKG@@%,$(call invoke_database_process,__database_load $(addprefix PKG@@,$1)))))
 
 # $1 is a list of package names, without versions.
 # Returns the version of each package.
@@ -231,13 +256,15 @@ $(call safe_shell_exec,mkdir -p '$(ROOT_DIR)')
 endif
 
 # A prefix for unfinished downloads.
-override cache_unfinished_prefix = --unfinished--
+override cache_unfinished_prefix = ---
 
 # $1 is the url, relative to the repo url.
 # If the is missing in the cache, downloads it.
 override cache_download_file_if_missing = \
-	$(if $(wildcard $(CACHE_DIR)/$(notdir $1)),$(call print_log,Using cached '$(notdir $1)'),$(call safe_shell_exec,$(call use_wget,$(dir $(REPO_DB_URL))$1,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1))))\
-	$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)' '$(CACHE_DIR)/$(notdir $1)')
+	$(if $(wildcard $(CACHE_DIR)/$(notdir $1)),\
+		$(call print_log,Using cached '$(notdir $1)'),\
+		$(call print_log,Downloading '$(notdir $1)'...)$(call safe_shell_exec,$(call use_wget,$(dir $(REPO_DB_URL))$1,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)))\
+	$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)' '$(CACHE_DIR)/$(notdir $1)'))
 
 # Deletes unfinished downloads.
 override cache_purge_unfinished = $(foreach x,$(wildcard $(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f '$x'))
@@ -255,8 +282,7 @@ override cache_want_packages = \
 
 # $1 is a list of packages, with versions.
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.
-# If they are not cached, downloads them.
-override cache_list_pkg_files = $(call cache_want_packages,$1)$(foreach x,$1,$(call safe_shell,tar -tf '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'))
+override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,tar -tf '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'))
 
 
 # --- INDEX INTERNALS ---
@@ -298,8 +324,10 @@ override index_purge_broken = \
 # It's installed, without checking dependencies.
 # Make sure it's not already installed!
 # It's downloaded, unless it's already cached.
-override index_force_install_single_pkg = $(call index_stop_if_single_pkg_installed,$1)\
-	$(foreach x,$(cache_list_pkg_files),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
+override index_force_install_single_pkg = \
+	$(call index_stop_if_single_pkg_installed,$1)\
+	$(call cache_want_packages,$1)\
+	$(foreach x,$(call cache_list_pkg_files,$1),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
 	$(call print_log,Extracting '$1'...)\
 	$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(CACHE_DIR)/$1$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*')\
 	$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$1' '$(index_dir)/$1')\
@@ -326,139 +354,179 @@ override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$
 # Returns a list of files that belong to installed packages listed in $1.
 # $1 has to include package versions.
 # Spaces in the resulting list are separated with `<`.
-override index_list_pkg_files = $(foreach x,$1,$(call safe_shell,cat '$(index_dir)/$x'))
+override index_list_pkg_files = $(sort $(foreach x,$1,$(call safe_shell,cat '$(index_dir)/$x')))
 
 
 
 # --- TARGETS ---
 
-# A parameter.
-p = $(error The parameter `p` is not set)
+# Creates a new public target.
+# $1 is name.
+# $2 is a user-facing parameter name, or empty if it accepts no parameters.
+# #3 is human-readable descrption
+override act = \
+	$(eval override _locat_target := $(if $(filter $1,$(word 1,$(MAKECMDGOALS))),,>>)$(strip $1))\
+	$(eval .PHONY: $(_locat_target))\
+	$(if $(display_help),\
+		$(info make $(strip $1)$(if $2, <$2>))\
+		$(info $(space)$(space)$(subst $(lf),$(lf)$(space)$(space),$3))\
+		$(info )\
+	)\
+	$(_locat_target): ; $(if $2,,$$(stop_if_have_parameters))
+
+$(if $(display_help),\
+	$(if $(p_is_set),$(error This action requires no parameters.))\
+	$(info >> msys2-pacmake <<)\
+	$(info A simple makefile-based package manager that can be used instead of)\
+	$(info MSYS2's pacman if it's not available (e.g. if you're not on Windows))\
+	$(info )\
+	$(info Usage:)\
+	$(info )\
+	)
+
+# Defines a new public target section.
+# $1 is name, in caps.
+override act_section = $(if $(display_help),$(info -- $(strip $1) --$(lf)))
+
+
+# MISC
+
+$(call act, help \
+,,Display this information and exit.)
+	@true
+
 
 # PACKAGE DATABASE
+$(call act_section, PACKAGE DATABASE )
+
+# Lists all available packages in the repo, without versions.
+$(call act, list-all \
+,,List all packages available in the repo.$(lf)(doesn't output package versions))
+	$(foreach x,$(database_query_available),$(info $x))
+	@true
 
 # Downloads a new database. Backups the old one as `database.mk.bak`
-.PHONY: update
-update:
+$(call act, update \
+,,Download a new database. The existing database will be backed up.)
 	$(if $(wildcard database.mk),$(call safe_shell_exec,mv -f 'database.mk' 'database.mk.bak' || true))
 	$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')
 	$(call safe_shell_exec,rm -f '$(database_tmp_file)')
 	$(database_query_empty)
 	@true
 
-# Lists all available packages in the repo, without versions.
-.PHONY: list-all
-list-all:
-	$(foreach x,$(database_query_available),$(info $x))
-	@true
-
-# `p` is a list of packages. Returns the same list, but with package versions specified.
-.PHONY: get-version
-get-version:
+# Accepts a list of packages. Returns the same list, but with package versions specified.
+$(call act, get-ver \
+,packages,Print the specified packages with version numbers added.)
 	$(foreach x,$(call database_query_full_name,$p),$(info $x))
 	@true
 
-# `p` is a list of packages. Returns the same list, with all dependencies added.
-.PHONY: get-deps
-get-deps:
+# Accepts a is a list of packages. Returns the same list, with all dependencies added.
+$(call act, get-deps \
+,packages,Print the specified packages and all their dependencies.)
 	$(foreach x,$(call database_query_deps,$p),$(info $x))
 	@true
 
 # Cleans the database.
-.PHONY: clean-db
-clean-db:
+$(call act, clean-database \
+,,Delete the package database$(comma) which contains the information about the repository.\
+$(lf)A new database will be downloaded next time it is needed.)
 	@rm -f database.mk database.mk.bak $(database_tmp_file)
 	@rm -rf '$(database_tmp_dir)'
 
-# PACKAGE CACHE
-
-# Returns a list of cached packages, with versions.
-.PHONY: list-cached
-list-cached:
-	$(foreach x,$(patsubst $(CACHE_DIR)/%$(REPO_PACKAGE_ARRCHIVE_SUFFIX),%,$(filter %$(REPO_PACKAGE_ARRCHIVE_SUFFIX),$(wildcard $(CACHE_DIR)/*))),$(info $x))
-	@true
-
-# Removes incomplete downloads from the cache.
-.PHONY: cache-purge-unfinished
-cache-purge-unfinished:
-	$(cache_purge_unfinished)
-	@true
-
-# Cleans the cache.
-.PHONY: cache-clean-all
-cache-clean-all:
-	$(foreach x,$(wildcard $(CACHE_DIR)/*),$(call safe_shell_exec,rm -f '$x'))
-	@true
-
-
-# `p` is a list of packages, without versions. Downloads them, if they are not already in the cache.
-.PHONY: cache-download
-cache-download:
-	$(call cache_want_packages,$(call database_query_full_name,$p))
-	@true
-
-# Same as `cache-download`, but you need to specify package versions manually.
-.PHONY: cache-download-ver
-cache-download-ver:
-	$(call cache_want_packages,$p)
-	@true
-
-# `p` is a list of packages, without versions. Outputs the list of files contained in them.
-# Downloads them, if they are not already in the cache.
-.PHONY: cache-list-pkg-contents
-cache-list-pkg-contents:
-	$(foreach x,$(call cache_list_pkg_files,$(call database_query_full_name,$p)),$(info $(subst <, ,$x)))
-	@true
 
 # PACKAGE INDEX
+$(call act_section, PACKAGE INDEX )
 
 # Lists all installed packages, with versions.
-.PHONY: list-installed
-list-installed:
+$(call act, list-installed \
+,,List all installed packages$(comma) with versions.)
 	$(foreach x,$(index_list_all_installed),$(info $x))
 	@true
 
-# `p` is a list of installed packages, with versions. Returns the list of files that belong to those packages.
-.PHONY: list-pkg-contents
-list-pkg-contents:
+# Accepts a list of installed packages, with versions. Returns the list of files that belong to those packages.
+$(call act, list-pkg-contents \
+,package-versions,List all files owned by the specified installed packages.)
 	$(foreach x,$(call index_list_pkg_files,$p),$(info $(subst <, ,$x)))
 	@true
 
-# PACKAGE INSTALLATION
 
-# `p` is a list of packages, without versions.
+# PACKAGE INSTALLATION
+$(call act_section, PACKAGE INSTALLATION )
+
+# Accepts a list of packages, without versions.
 # Installs those packages, without considering their dependencies.
-.PHONY: direct-install
-direct-install:
+$(call act, unmanaged-install \
+,packages,Install specified packages$(comma) without dependencies.$(lf)Normally you don't need to use this command.)
 	$(call index_force_install,$(call database_query_full_name,$p))
 	@true
 
-# Same as `direct-install`, but you need to specify package versions manually.
-.PHONY: direct-install-ver
-direct-install-ver:
+# Same as `unmanaged-install`, but you need to specify package versions manually.
+$(call act, unmanaged-install-ver \
+,package-versions,Install specified package versions$(comma) without dependencies.$(lf)Normally you don't need to use this command.)
 	$(call index_force_install,$p)
 	@true
 
 # `p` is a list of packages, with versions.
 # Uninstalls those packages, without considering their dependencies.
-.PHONY: direct-uninstall-ver
-direct-uninstall:
+$(call act, unmanaged-uninstall \
+,package-versions,Uninstall specified packages$(comma) without dependencies.$(lf)Normally you don't need to use this command$(comma) since its effects$(lf)might be undone automatically when invoking a non-unmanaged command.)
 	$(call index_force_uninstall,$p)
 	@true
 
 
-# BROKEN PACKAGES
+# PACKAGE INSTALLATION
+$(call act_section, BROKEN PACKAGES )
 
 # Lists broken packages.
-# A package can become broken if you interrupt its installation or deinstallation
+# A package can become broken if you interrupt its installation or uninstallation
 # Run `purge-broken` to destroy those.
-.PHONY: list-broken
-list-broken:
-	$(index_purge_broken)
+$(call act, list-broken \
+,,List all broken packages.$(lf)A package might become broken if you interrupt its installation or uninstallation.)
+	$(foreach x,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$(wildcard $(index_dir)/$(index_broken_prefix)*)),$(info $x))
 	@true
 
 # Destroys broken packages.
-.PHONY: purge-broken
-purge-broken:
+$(call act, purge-broken \
+,,Destroys all broken packages.)
 	$(index_purge_broken)
+	@true
+
+
+# PACKAGE CACHE
+$(call act_section, PACKAGE CACHE )
+
+# Returns a list of cached packages, with versions.
+$(call act, list-cached \
+,,List all cached packages archives.$(lf)Incomplete archives will be prefixed with `$(cache_unfinished_prefix)`.)
+	$(foreach x,$(patsubst $(CACHE_DIR)/%$(REPO_PACKAGE_ARRCHIVE_SUFFIX),%,$(filter %$(REPO_PACKAGE_ARRCHIVE_SUFFIX),$(wildcard $(CACHE_DIR)/*))),$(info $x))
+	@true
+
+# Removes incomplete downloads from the cache.
+$(call act, cache-purge-unfinished \
+,,Delete incomplete cached archives$(comma) which might appear if you interrupt a download.)
+	$(cache_purge_unfinished)
+	@true
+
+# Cleans the cache.
+$(call act, clean-cache \
+,,Clean the entire archive cache.)
+	$(foreach x,$(wildcard $(CACHE_DIR)/*),$(call safe_shell_exec,rm -f '$x'))
+	@true
+
+# Accepts a list of packages, without versions. Downloads them, if they are not already in the cache.
+$(call act, cache-download \
+,packages,Download specified packages to the cache.)
+	$(call cache_want_packages,$(call database_query_full_name,$p))
+	@true
+
+# Same as `cache-download`, but you need to specify package versions manually.
+$(call act, cache-download-ver \
+,package-versions,Download specified package versions to the cache.)
+	$(call cache_want_packages,$p)
+	@true
+
+# Accepts a list of packages, without versions. Outputs the list of files contained in them.
+$(call act, cache-list-pkg-contents \
+,package-versions,Output a list of files contained in the specified cached packages.)
+	$(foreach x,$(call cache_list_pkg_files,$p),$(info $(subst <, ,$x)))
 	@true

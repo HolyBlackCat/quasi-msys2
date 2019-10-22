@@ -22,6 +22,10 @@ CACHE_DIR := cache
 KEEP_UNPROCESSED_DATABASE := 0
 
 
+# --- VERSION ---
+override version := 1.0.0
+
+
 # --- GENERIC UTILITIES ---
 
 # Disable parallel builds.
@@ -303,6 +307,15 @@ override cache_want_packages = \
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.
 override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,tar -tf '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'))
 
+# Lists current packages sitting in the cache.
+override cache_list_current = $(patsubst $(CACHE_DIR)/%$(REPO_PACKAGE_ARRCHIVE_SUFFIX),%,$(wildcard $(CACHE_DIR)/*))
+
+# Lists all archives (including missing ones) used by installed packages.
+override cache_list_missing = $(filter-out $(cache_list_current),$(index_list_all_installed))
+
+# Lists all archives not used by installed packages.
+override cache_list_unused = $(filter-out $(index_list_all_installed),$(cache_list_current))
+
 
 # --- INDEX INTERNALS ---
 
@@ -322,21 +335,25 @@ override index_stop_if_single_pkg_installed = \
 	$(if $(wildcard $(index_dir)/$1),$(error Package '$1' is already installed))\
 	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken, run 'make purge-broken' and try again))
 
-# Causes an error if the package $1 is not installed, or is broken.
+# Causes an error if the package $1 is not installed (broken counts as installed).
 # $1 has to include the version.
-# Note that both this function and `index_stop_if_single_pkg_installed` cause an error if the package is broken.
 override index_stop_if_single_pkg_not_installed = \
-	$(if $(wildcard $(index_dir)/$1),,$(error Package '$1' is not installed))\
-	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken, run 'make purge-broken' and try again))
+	$(if $(strip $(wildcard $(index_dir)/$1)$(wildcard $(index_dir)/$(index_broken_prefix)$1)),,$(error Package '$1' is not installed))\
 
-# Uninstalls all packages that have the $(index_broken_prefix) prefix.
+# Removes a single broken package.
+# $1 is a package name, with version. $(index_broken_prefix) is assumed and shouldn't be specified.
+override index_uninstall_single_broken_pkg = \
+	$(foreach x,$(call index_list_pkg_files,$(index_broken_prefix)$1),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$x)' || true))\
+    	$(call safe_shell_exec,rm -f '$(index_dir)/$(index_broken_prefix)$1')\
+		$(call print_log,Removed '$1')
+
+# Removes all empty directories in the $(ROOT_DIR).
+override index_clean_empty_dirs = $(call safe_shell_exec,find $(ROOT_DIR) -mindepth 1 -type d -empty -delete)
+
+# Removes all packages that have the $(index_broken_prefix) prefix.
 override index_purge_broken = \
-	$(foreach x,$(wildcard $(index_dir)/$(index_broken_prefix)*),\
-    	$(foreach y,$(call index_list_pkg_files,$(patsubst $(index_dir)/%,%,$x)),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$y)' || true))\
-    	$(call safe_shell_exec,rm -f '$x')\
-		$(call print_log,Uninstalled '$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$x)')\
-	)\
-	$(call safe_shell_exec,find $(ROOT_DIR) -mindepth 1 -type d -empty -delete)
+	$(foreach x,$(wildcard $(index_dir)/$(index_broken_prefix)*),$(call index_uninstall_single_broken_pkg,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$x)))\
+	$(index_clean_empty_dirs)
 
 
 # $1 is a single package, with version.
@@ -355,14 +372,14 @@ override index_force_install_single_pkg = \
 # Installs a list of packages $1 (which has to include versions), without considering dependencies.
 override index_force_install = $(foreach x,$1,$(call index_force_install_single_pkg,$x))
 
-# Uninstalls a list of packages $1 (which has to include versions), without considering dependencies.
+# Removes a list of packages $1 (which has to include versions), without considering dependencies.
 override index_force_uninstall = \
-	$(foreach x,$1,\
+	$(foreach x,$(sort $(patsubst $(index_broken_prefix)%,%,$1)),\
 		$(call index_stop_if_single_pkg_not_installed,$x)\
-		$(call safe_shell_exec,mv -f '$(index_dir)/$1' '$(index_dir)/$(index_broken_prefix)$1')\
+		$(if $(wildcard $(index_dir)/$x),$(call safe_shell_exec,mv -f '$(index_dir)/$x' '$(index_dir)/$(index_broken_prefix)$x'))\
+		$(call index_uninstall_single_broken_pkg,$x)\
 	)\
-	$(index_purge_broken)
-
+	$(index_clean_empty_dirs)
 
 
 # --- INDEX INTERFACE ---
@@ -412,7 +429,7 @@ override pkg_request_list_add = $(call database_query_verify,$1)$(call pkg_stop_
 
 # Adds packages to the list of requested packages.
 # $1 is a list of packages without versions.
-override pkg_request_list_remove = $(call pkg_stop_if_not_in_request_list,$1)$(call pkg_set_request_list,$(call database_query_verify $1)$(call pkg_set_request_list,$(pkg_request_list) $1))
+override pkg_request_list_remove = $(call pkg_stop_if_not_in_request_list,$1)$(call pkg_set_request_list,$(filter-out $1,$(pkg_request_list)))
 
 # Computes the delta between the current state and the desired state.
 # Returns a list of packages with prefixes: `>` means a package should be installed, and `<` means it should be removed.
@@ -424,7 +441,36 @@ override pkg_compute_delta = \
 	$(addprefix <,$(filter-out $(_state_target),$(_state_cur)))\
 	$(addprefix >,$(filter-out $(_state_cur),$(_state_target)))
 
+# Prints a delta.
+# $1 is the delta data.
+# Packages that should be removed are prefixed with `- `, and packages that shoudl be installed are prefixed with `+ `.
+override pkg_pretty_print_delta = \
+	$(foreach x,$(patsubst <%,%,$(filter <%,$1)),$(info - $x))\
+	$(foreach x,$(patsubst >%,%,$(filter >%,$1)),$(info + $x))
 
+# Prints a delta.
+# $1 is the delta data.
+# Same as pkg_pretty_print_delta`, but package updates are printed separately and prefixed with `> `.
+override pkg_pretty_print_delta_fancy = \
+	$(eval override _local_delta := $1)\
+	$(eval override _local_upd :=)\
+	$(foreach x,$(_local_delta),$(if $(filter <%,$x),\
+		$(eval override _local_name_ver := $(patsubst <%,%,$x))\
+		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
+		$(foreach y,$(_local_delta),$(if $(filter 1,$(words $(sort $(_local_name) $(call strip_ver,$(patsubst >%,%,$y))))),\
+			$(eval override _local_upd += $(_local_name_ver)>$(subst >$(_local_name)-,,$y))\
+			$(eval override _local_delta := $(filter-out $x $y,$(_local_delta)))\
+		))\
+	))\
+	$(foreach x,$(patsubst <%,%,$(filter <%,$(_local_delta))),$(info - $x))\
+	$(foreach x,$(patsubst >%,%,$(filter >%,$(_local_delta))),$(info + $x))\
+	$(foreach x,$(_local_upd),$(info > $(subst >, >> ,$x)))
+
+# Applies a delta.
+# $1 is the delta data.
+override pkg_apply_delta = \
+	$(call index_force_uninstall,$(patsubst <%,%,$(filter <%,$1)))\
+	$(call index_force_install,$(patsubst >%,%,$(filter >%,$1)))
 
 
 # --- TARGETS ---
@@ -445,7 +491,7 @@ override act = \
 
 $(if $(display_help),\
 	$(if $(p_is_set),$(error This action requires no parameters.))\
-	$(info >> msys2-pacmake <<)\
+	$(info >> msys2-pacmake v$(version) <<)\
 	$(info A simple makefile-based package manager that can be used instead of)\
 	$(info MSYS2's pacman if it's not available (e.g. if you're not on Windows))\
 	$(info )\
@@ -470,7 +516,7 @@ $(call act_section, PACKAGE DATABASE )
 
 # Lists all available packages in the repo, without versions.
 $(call act, list-all \
-,,List all packages available in the repo.$(lf)(doesn't output package versions))
+,,List all packages available in the repository.$(lf)Doesn't output package versions.))
 	$(foreach x,$(database_query_available),$(info $x))
 	@true
 
@@ -518,34 +564,62 @@ $(call act, list-req \
 	$(foreach x,$(pkg_request_list),$(info $x))
 	@true
 
-# Prints the current delta, in a raw form.
-$(call act, delta \
-,,Prints a list of changes that should be applied to the installed packages to make sure\
-$(lf)that the latest versions of requested packages and their dependencies are installed.\
-$(lf)`+` prefix means the package should be installed$(comma)\
-$(lf)`-` prefix means the package should be uninstalled$(comma) and\
-$(lf)`>` prefix means the package should be updated.)
+# Installs packages (without versions specified).
+$(call act, install \
+,packages,Installs packages.$(lf)Equivalent to 'make request' followed by 'make apply-delta'.)
+	$(call pkg_request_list_add,$p)
+	$(info Will apply following changes:)
 	$(eval override _local_delta := $(pkg_compute_delta))
-	$(eval override _local_upd :=)
-	$(foreach x,$(_local_delta),$(if $(filter <%,$x),\
-		$(eval override _local_name_ver := $(patsubst <%,%,$x))\
-		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
-		$(foreach y,$(_local_delta),$(if $(filter 1,$(words $(sort $(_local_name) $(call strip_ver,$(patsubst >%,%,$y))))),\
-			$(eval override _local_upd += $(_local_name_ver)>$(subst >$(_local_name)-,,$y))\
-			$(eval override _local_delta := $(filter-out $x $y,$(_local_delta)))\
-		))\
-	))
-	$(foreach x,$(patsubst <%,%,$(filter <%,$(_local_delta))),$(info - $x))
-	$(foreach x,$(patsubst >%,%,$(filter >%,$(_local_delta))),$(info + $x))
-	$(foreach x,$(_local_upd),$(info > $(subst >, -> ,$x)))
+	$(call pkg_pretty_print_delta_fancy,$(_local_delta))
+	$(call pkg_apply_delta,$(_local_delta))
 	@true
 
-# Prints the current delta, in a raw form.
-$(call act, delta-raw \
-,,Similar to `make delta`$(comma) but package update actions are printed$(lf)as pairs of removals and installations.)
+# Removes packages (without versions specified).
+$(call act, remove \
+,packages,Removes packages.$(lf)Equivalent to 'make undo-request' followed by 'make apply-delta'.)
+	$(call pkg_request_list_remove,$p)
+	$(info Will apply following changes:)
 	$(eval override _local_delta := $(pkg_compute_delta))
-	$(foreach x,$(patsubst <%,%,$(filter <%,$(_local_delta))),$(info - $x))
-	$(foreach x,$(patsubst >%,%,$(filter >%,$(_local_delta))),$(info + $x))
+	$(call pkg_pretty_print_delta_fancy,$(_local_delta))
+	$(call pkg_apply_delta,$(_local_delta))
+	@true
+
+# Removes all packages (without versions specified).
+$(call act, remove-all-packages \
+,,Removes all packages.)
+	$(call pkg_request_list_reset)
+	$(info Will apply following changes:)
+	$(eval override _local_delta := $(pkg_compute_delta))
+	$(call pkg_pretty_print_delta_fancy,$(_local_delta))
+	$(call pkg_apply_delta,$(_local_delta))
+	@true
+
+# Updates the database, upgrades packages, and fixes stuff.
+$(call act, upgrade \
+,,Updates package database and upgrades packages.)
+	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
+	@true
+
+# Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
+$(call act, upgrade-keep-cache \
+,,Updates package database and upgrades packages.\
+$(lf)Doesn't remove unused entries from the cache.)
+	$(call safe_shell_exec, $(MAKE) 1>&2 update-database)
+	$(info Will apply following changes:)
+	$(call safe_shell_exec, $(MAKE) 1>&2 delta)
+	$(call safe_shell_exec, $(MAKE) 1>&2 apply-delta)
+	$(info Cleaning up...)
+	$(call safe_shell_exec, $(MAKE) 1>&2 purge-broken)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
+	@true
+
+# Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
+$(call act, upgrade-clean-cache \
+,,Updates package database and upgrades packages.\
+$(lf)Cleans the cache.)
+	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
+	$(call safe_shell_exec, $(MAKE) 1>&2 clean-cache)
 	@true
 
 # Adds packages (without versions) to the request list.
@@ -558,7 +632,7 @@ $(lf)installed next time 'make apply-delta' is called.)
 # Removes packages (without versions) from the request list.
 $(call act, undo-request \
 ,packages,Request packages to not be installed.$(lf)The packages and any dependencies that are no longer needed\
-$(lf)will be uninstalled next time 'make apply-delta' is called.)
+$(lf)will be removed next time 'make apply-delta' is called.)
 	$(call pkg_request_list_remove,$p)
 	@true
 
@@ -568,6 +642,30 @@ $(call act, clean-requests \
 	$(call pkg_request_list_reset)
 	@true
 
+# Prints the current delta.
+$(call act, delta \
+,,Prints the list of changes that should be applied to the installed packages to make sure\
+$(lf)that the latest versions of the requested packages and their dependencies are installed.\
+$(lf)`+` prefix means the package should be installed$(comma)\
+$(lf)`-` prefix means the package should be removed$(comma) and\
+$(lf)`>` prefix means the package should be updated.)
+	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta))
+	@true
+
+# Prints the current delta, in a simple form.
+$(call act, simple-delta \
+,,Similar to `make delta`$(comma) but only displays 'install' and 'remove' actions.\
+$(lf)Other actions are represented in terms of those two.)
+	$(call pkg_pretty_print_delta,$(pkg_compute_delta))
+	@true
+
+# Applies the current delta.
+$(call act, apply-delta \
+,,Installs all requested packages and their dependencies$(comma)\
+$(lf)or updates them to latest known versions.\
+$(lf)Use `make delta` to preview the changes before applying them.)
+	$(call pkg_apply_delta,$(pkg_compute_delta))
+	@true
 
 # Accepts a list of installed packages, with versions. Returns the list of files that belong to those packages.
 $(call act, list-pkg-contents \
@@ -578,20 +676,26 @@ $(call act, list-pkg-contents \
 # Accepts a list of packages, without versions.
 # Installs those packages, without considering their dependencies.
 $(call act, unmanaged-install \
-,packages,Install specified packages$(comma) without dependencies.$(lf)Normally you don't need to use this command.)
+,packages,Install specified packages$(comma) without dependencies.\
+$(lf)Normally you don't need to use this command$(comma) since its effects\
+$(lf)will be undone automatically next time you invoke a non-unmanaged command.)
 	$(call index_force_install,$(call database_query_full_name,$p))
 	@true
 
 # Same as `unmanaged-install`, but you need to specify package versions manually.
 $(call act, unmanaged-install-ver \
-,package-versions,Install specified package versions$(comma) without dependencies.$(lf)Normally you don't need to use this command.)
+,package-versions,Install specified package versions$(comma) without dependencies.\
+$(lf)Normally you don't need to use this command$(comma) since its effects\
+$(lf)will be undone automatically next time you invoke a non-unmanaged command.)
 	$(call index_force_install,$p)
 	@true
 
-# `p` is a list of packages, with versions.
-# Uninstalls those packages, without considering their dependencies.
-$(call act, unmanaged-uninstall-ver \
-,package-versions,Uninstall specified packages$(comma) without dependencies.$(lf)Normally you don't need to use this command$(comma) since its effects$(lf)might be undone automatically when invoking a non-unmanaged command.)
+# Accepts a list of packages, with versions.
+# Removes those packages, without considering their dependencies.
+$(call act, unmanaged-remove-ver \
+,package-versions,Remove specified packages$(comma) without dependencies.\
+$(lf)Normally you don't need to use this command$(comma) since its effects\
+$(lf)will be undone automatically next time you invoke a non-unmanaged command.)
 	$(call index_force_uninstall,$p)
 	@true
 
@@ -600,10 +704,10 @@ $(call act, unmanaged-uninstall-ver \
 $(call act_section, BROKEN PACKAGES )
 
 # Lists broken packages.
-# A package can become broken if you interrupt its installation or uninstallation
+# A package can become broken if you interrupt its installation or removal.
 # Run `purge-broken` to destroy those.
 $(call act, list-broken \
-,,List all broken packages.$(lf)A package might become broken if you interrupt its installation or uninstallation.)
+,,List all broken packages.$(lf)A package might become broken if you interrupt its installation or removal.)
 	$(foreach x,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$(wildcard $(index_dir)/$(index_broken_prefix)*)),$(info $x))
 	@true
 
@@ -620,7 +724,7 @@ $(call act_section, PACKAGE CACHE )
 # Returns a list of cached packages, with versions.
 $(call act, list-cached \
 ,,List all cached packages archives.$(lf)Incomplete archives will be prefixed with `$(cache_unfinished_prefix)`.)
-	$(foreach x,$(patsubst $(CACHE_DIR)/%$(REPO_PACKAGE_ARRCHIVE_SUFFIX),%,$(filter %$(REPO_PACKAGE_ARRCHIVE_SUFFIX),$(wildcard $(CACHE_DIR)/*))),$(info $x))
+	$(foreach x,$(cache_list_current),$(info $x))
 	@true
 
 # Removes incomplete downloads from the cache.
@@ -645,6 +749,40 @@ $(call act, cache-download \
 $(call act, cache-download-ver \
 ,package-versions,Download specified package versions to the cache.)
 	$(call cache_want_packages,$p)
+	@true
+
+# Lists packages that are installed but not cached.
+$(call act, cache-list-missing \
+,,Lists all installed packages that are not cached.)
+	$(foreach x,$(cache_list_missing),$(info $x))
+	@true
+
+# Lists packages that are cached but not installed.
+$(call act, cache-list-unused \
+,,Lists all cached packages that are not installed.)
+	$(foreach x,$(cache_list_unused),$(info $x))
+	@true
+
+# Caches packages that are currently installed.
+$(call act, cache-add-missing \
+,,Caches all installed packages.)
+	$(call cache_want_packages,$(cache_list_missing))
+	@true
+
+# Removes packages that are not currently installed from cache.
+$(call act, cache-remove-unused \
+,,Removes packages that are not currently installed from the cache.)
+	$(foreach x,$(cache_list_unused),\
+		$(call safe_shell_exec,rm -f '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)')\
+		$(info Removed '$x' from cache)\
+		)
+	@true
+
+# Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
+$(call act, cache-installed-only \
+,,Make sure the cache contains all installed packages, and nothign else.)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-add-missing)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
 	@true
 
 # Accepts a list of packages, without versions. Outputs the list of files contained in them.

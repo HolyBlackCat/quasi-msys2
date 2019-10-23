@@ -95,3 +95,5 @@ You can run them using Wine:
 If you want to run them from an arbitrary directory, you need to set the `WINEPATH` environment variable:
 
     WINEPATH=/<full-path>/root/mingw64/bin wine gcc --version
+
+Have fun.

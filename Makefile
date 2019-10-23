@@ -23,7 +23,7 @@ KEEP_UNPROCESSED_DATABASE := 0
 
 
 # --- VERSION ---
-override version := 1.0.0
+override version := 1.0.1
 
 
 # --- GENERIC UTILITIES ---
@@ -47,8 +47,8 @@ else
 override safe_shell = $(info Shell command: $1)$(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, status $(.SHELLSTATUS)))
 endif
 
-# Same as `safe_shell`, but discards the output and expands to a single space.
-override safe_shell_exec = $(call space,$(call safe_shell,$1))
+# Same as `safe_shell`, but discards the output and expands to nothing.
+override safe_shell_exec = $(call,$(call safe_shell,$1))
 
 # Downloads url $1 to file $2. Deletes the file on failure.
 override use_wget = $(call safe_shell_exec,wget '$1' -q -c --show-progress -O '$2' || (rm -f '$2' && false))
@@ -245,8 +245,11 @@ __database_verify:
 
 # --- DATABASE INTERFACE ---
 
+# Checks if the database is equal to the database backup.
+override database_not_equal_to_backup = $(call,$(shell cmp -s 'database.mk' 'database.mk.bak'))$(filter-out 0,$(.SHELLSTATUS))
+
 # Does nothing. But if the database is missing, downloads it.
-override database_query_empty = $(call space,$(call invoke_database_process,__database_load))
+override database_query_empty = $(call,$(call invoke_database_process,__database_load))
 
 # Returns a list of all available packages.
 override database_query_available = $(call invoke_database_process,__database_list_all)
@@ -521,12 +524,20 @@ $(call act, list-all \
 	@true
 
 # Downloads a new database. Backups the old one as `database.mk.bak`
-$(call act, update-database \
-,,Download a new database. The existing database will be backed up.)
+$(call act, update \
+,,Download a new database. The existing database will be backed up.\
+$(lf))
 	$(if $(wildcard database.mk),$(call safe_shell_exec,mv -f 'database.mk' 'database.mk.bak' || true))
 	$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')
 	$(call safe_shell_exec,rm -f '$(database_tmp_file)')
 	$(database_query_empty)
+	$(if $(database_not_equal_to_backup),\
+		$(info A new database was downloaded.),\
+		$(info The database did not change.))
+	$(eval _local_delta := $(pkg_compute_delta))\
+	$(if $(strip $(_local_delta)),\
+		$(info Following changes should be applied:)$(call pkg_pretty_print_delta_fancy,$(_local_delta))$(info Run `make apply-delta` to apply changes.),\
+		$(info No updates are available for the installed packages.))
 	@true
 
 # Accepts a list of packages. Returns the same list, but with package versions specified.
@@ -566,7 +577,7 @@ $(call act, list-req \
 
 # Installs packages (without versions specified).
 $(call act, install \
-,packages,Installs packages.$(lf)Equivalent to 'make request' followed by 'make apply-delta'.)
+,packages,Install packages.$(lf)Equivalent to 'make request' followed by 'make apply-delta'.)
 	$(call pkg_request_list_add,$p)
 	$(info Will apply following changes:)
 	$(eval override _local_delta := $(pkg_compute_delta))
@@ -576,7 +587,7 @@ $(call act, install \
 
 # Removes packages (without versions specified).
 $(call act, remove \
-,packages,Removes packages.$(lf)Equivalent to 'make undo-request' followed by 'make apply-delta'.)
+,packages,Remove packages.$(lf)Equivalent to 'make undo-request' followed by 'make apply-delta'.)
 	$(call pkg_request_list_remove,$p)
 	$(info Will apply following changes:)
 	$(eval override _local_delta := $(pkg_compute_delta))
@@ -586,7 +597,7 @@ $(call act, remove \
 
 # Removes all packages (without versions specified).
 $(call act, remove-all-packages \
-,,Removes all packages.)
+,,Remove all packages.)
 	$(call pkg_request_list_reset)
 	$(info Will apply following changes:)
 	$(eval override _local_delta := $(pkg_compute_delta))
@@ -596,15 +607,15 @@ $(call act, remove-all-packages \
 
 # Updates the database, upgrades packages, and fixes stuff.
 $(call act, upgrade \
-,,Updates package database and upgrades packages.)
+,,Update package database and upgrade all packages.)
 	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
 	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
 	@true
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, upgrade-keep-cache \
-,,Updates package database and upgrades packages.\
-$(lf)Doesn't remove unused entries from the cache.)
+,,Update package database and upgrade all packages.\
+$(lf)Don't remove unused packages from the cache.)
 	$(call safe_shell_exec, $(MAKE) 1>&2 update-database)
 	$(info Will apply following changes:)
 	$(call safe_shell_exec, $(MAKE) 1>&2 delta)
@@ -616,8 +627,8 @@ $(lf)Doesn't remove unused entries from the cache.)
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, upgrade-clean-cache \
-,,Updates package database and upgrades packages.\
-$(lf)Cleans the cache.)
+,,Update package database and upgrade packages.\
+$(lf)Clean the cache.)
 	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
 	$(call safe_shell_exec, $(MAKE) 1>&2 clean-cache)
 	@true

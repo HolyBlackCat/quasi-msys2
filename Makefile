@@ -23,7 +23,7 @@ KEEP_UNPROCESSED_DATABASE := 0
 
 
 # --- VERSION ---
-override version := 1.0.1
+override version := 1.0.2
 
 
 # --- GENERIC UTILITIES ---
@@ -61,6 +61,19 @@ override print_log = $(call safe_shell_exec,echo >&2 '$(subst ','"'"',$1)')
 # If $1 is not found in $2, returns $2 without changing it.
 #override remove_suffix = $(subst $(lastword $(subst $1, ,$2)<<<),,$2<<<)
 override remove_suffix = $(subst <<<,,$(subst $1$(lastword $(subst $1, ,$2)<<<),<<<,$2<<<))
+
+
+# --- CHECK WORKING DIRECTORY ---
+
+override installation_directory_marker := msys2_pacmake_base_dir
+
+# Make sure `$(installation_directory_marker)` file exists in the current directory, otherwise stop.
+ifeq ($(wildcard ./$(installation_directory_marker)),)
+$(info Incorrect working directory.)
+$(info Invoke `make` directly from the installation directory,)
+$(info or specify the installation directory using `-C <dir>` flag.)
+$(error Aborted)
+endif
 
 
 # --- PROCESS PARMETERS ---
@@ -106,11 +119,20 @@ endif
 
 # --- DATABASE INTERNALS ---
 
-# Temporary database file.
+# The main database file.
+override database_processed_file := database.mk
+
+# A backup for the main database file.
+override database_processed_file_bak := database.mk.bak
+
+# Temporary database file, downloaded directly from the repo.
 override database_tmp_file := database.db
+# A copy of `database.db`. The current processed database should be based on this file.
+override database_tmp_file_original := database.current_original
+
 # Temporary database directory.
 override database_tmp_dir := database
-# A pattern for desciption files.
+# A pattern for package desciption files.
 override desc_pattern := $(database_tmp_dir)/*/desc
 
 # Converts description file names to package names (with versions).
@@ -146,63 +168,63 @@ override code_pkg_target = \
 	$(call safe_shell_exec,echo >>'$1' '$(addprefix PKG@@,$(sort $2)): $(addprefix PKG@@,$(sort $(call strip_ver_cond,$3))) ; @echo '"'"'PKG@@$(word 1,$2)'"'"'')
 
 
-# We don't use `.INTERMEDIATE` for consistency, see below.
-.SECONDARY:
+# We don't use `.INTERMEDIATE`, since the recipe for `$(database_processed_file)` moves this file rather than deleting it.
+.SECONDARY: $(database_tmp_file)
 $(database_tmp_file):
 	$(call print_log,Downloading package database...)
-	$(call use_wget,$(REPO_DB_URL),$@)
-
-# `.INTERMEDIATE` doesn't seem to work with directories, so we use `.SECONDARY` and delete it manually in the recipe for `database.mk`.
-.SECONDARY:
-$(database_tmp_dir)/: $(database_tmp_file)
-	$(call print_log,Extracting package database...)
-	@rm -rf '$@'
-	@mkdir -p '$@'
-	@tar -C '$@' -xzf '$<'
-ifeq ($(KEEP_UNPROCESSED_DATABASE),0)
-	@rm -f '$<'
-endif
-
-database.mk: $(database_tmp_dir)/
-	$(call print_log,Processing package database...)
 	$(call safe_shell_exec,rm -f '$@')
-	$(eval override _local_db_files := $(sort $(wildcard $(desc_pattern))))
-#	$(eval   override _local_db_files := $(wordlist 400,800,$(_local_db_files)))
-	$(eval override _local_pkg_list :=)
-	$(eval override _local_dupe_check_list :=)
-	$(foreach x,$(_local_db_files),\
-		$(eval override _local_name_ver := $(call desc_file_to_name_ver,$x))\
-		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
-		$(call code_pkg_version_var,$@,$(_local_name_ver))\
-		$(eval override _local_file := $(call safe_shell,cat $x))\
-		$(eval override _local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
-		$(eval override _local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
-		$(eval override _local_lhs := $(_local_name) $(_local_aliases))\
-		$(eval override _local_pkg_list += $(_local_name))\
-		$(foreach y,$(_local_lhs),\
-			$(eval override _local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
-			$(if $(_local_conflict),\
-				$(call print_log,Warning: '$y' is provided by both)\
-				$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' and)\
-				$(call print_log,  '$(_local_name_ver)')\
-				$(call print_log,  The second option will be ignored by default.)\
-				$(eval override _local_lhs := $(filter-out $y,$(_local_lhs)))\
-			)\
-		)\
-		$(eval override _local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
-		$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
-		$(call safe_shell_exec,echo >>$@)\
+	$(call use_wget,$(REPO_DB_URL),$@)
+	@true
+
+$(database_processed_file): $(database_tmp_file)
+	$(eval override _local_database_not_changed := $(strip \
+		$(if $(wildcard $@),$(call,$(shell cmp -s '$(database_tmp_file)' '$(database_tmp_file_original)'))$(filter 0,$(.SHELLSTATUS)))\
+	))\
+	$(if $(_local_database_not_changed),\
+		$(call print_log,The database has not changed.)\
+	,\
+		$(call print_log,Extracting package database...)\
+		$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')\
+		$(call safe_shell_exec,mkdir -p '$(database_tmp_dir)')\
+		$(call safe_shell_exec,tar -C '$(database_tmp_dir)' -xzf '$(database_tmp_file)')\
+		$(if $(wildcard $@),$(call safe_shell_exec,mv -f '$@' '$(database_processed_file_bak)'))\
+		$(call print_log,Processing package database...)\
+    	$(eval override _local_db_files := $(sort $(wildcard $(desc_pattern))))\
+    	$(eval override _local_pkg_list :=)\
+    	$(eval override _local_dupe_check_list :=)\
+    	$(foreach x,$(_local_db_files),\
+    		$(eval override _local_name_ver := $(call desc_file_to_name_ver,$x))\
+    		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
+    		$(call code_pkg_version_var,$@,$(_local_name_ver))\
+    		$(eval override _local_file := $(call safe_shell,cat $x))\
+    		$(eval override _local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
+    		$(eval override _local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
+    		$(eval override _local_lhs := $(_local_name) $(_local_aliases))\
+    		$(eval override _local_pkg_list += $(_local_name))\
+    		$(foreach y,$(_local_lhs),\
+    			$(eval override _local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
+    			$(if $(_local_conflict),\
+    				$(call print_log,Warning: '$y' is provided by both)\
+    				$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' and)\
+    				$(call print_log,  '$(_local_name_ver)')\
+    				$(call print_log,  The second option will be ignored by default.)\
+    				$(eval override _local_lhs := $(filter-out $y,$(_local_lhs)))\
+    			)\
+    		)\
+    		$(eval override _local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
+    		$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
+    		$(call safe_shell_exec,echo >>$@)\
+    	)\
+    	$(call safe_shell_exec,echo >>$@ 'override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list))')\
 	)
-	$(call safe_shell_exec,echo >>$@ 'override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list))')
-ifeq ($(KEEP_UNPROCESSED_DATABASE),0)
-	@rm -rf '$<'
-endif
+	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
+	$(call safe_shell_exec,mv -f '$(database_tmp_file)' '$(database_tmp_file_original)')
 	@true
 
 
 # Load the database if we got a query.
 ifneq ($(filter __database_%,$(MAKECMDGOALS)),)
-include database.mk
+include $(database_processed_file)
 # Also validate all package names specified in the command line
 $(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(VERSION_OF_$x),,$(error Unknown package: '$x')))
 endif
@@ -244,9 +266,6 @@ __database_verify:
 
 
 # --- DATABASE INTERFACE ---
-
-# Checks if the database is equal to the database backup.
-override database_not_equal_to_backup = $(call,$(shell cmp -s 'database.mk' 'database.mk.bak'))$(filter-out 0,$(.SHELLSTATUS))
 
 # Does nothing. But if the database is missing, downloads it.
 override database_query_empty = $(call,$(call invoke_database_process,__database_load))
@@ -336,7 +355,7 @@ override index_broken_prefix := --broken--
 # $1 has to include the version.
 override index_stop_if_single_pkg_installed = \
 	$(if $(wildcard $(index_dir)/$1),$(error Package '$1' is already installed))\
-	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken, run 'make purge-broken' and try again))
+	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken))
 
 # Causes an error if the package $1 is not installed (broken counts as installed).
 # $1 has to include the version.
@@ -346,7 +365,7 @@ override index_stop_if_single_pkg_not_installed = \
 # Removes a single broken package.
 # $1 is a package name, with version. $(index_broken_prefix) is assumed and shouldn't be specified.
 override index_uninstall_single_broken_pkg = \
-	$(foreach x,$(call index_list_pkg_files,$(index_broken_prefix)$1),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$x)' || true))\
+	$(foreach x,$(call index_list_pkg_files,$(index_broken_prefix)$1),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$x)'))\
     	$(call safe_shell_exec,rm -f '$(index_dir)/$(index_broken_prefix)$1')\
 		$(call print_log,Removed '$1')
 
@@ -366,7 +385,9 @@ override index_purge_broken = \
 override index_force_install_single_pkg = \
 	$(call index_stop_if_single_pkg_installed,$1)\
 	$(call cache_want_packages,$1)\
-	$(foreach x,$(call cache_list_pkg_files,$1),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
+	$(eval override _local_files := $(call cache_list_pkg_files,$1))\
+	$(foreach x,$(_local_files),$(if $(wildcard $(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$1': file `$(subst <, ,$x)` already exists)))\
+	$(foreach x,$(_local_files),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
 	$(call print_log,Extracting '$1'...)\
 	$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(CACHE_DIR)/$1$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*')\
 	$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$1' '$(index_dir)/$1')\
@@ -393,7 +414,7 @@ override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$
 # Returns a list of files that belong to installed packages listed in $1.
 # $1 has to include package versions.
 # Spaces in the resulting list are separated with `<`.
-override index_list_pkg_files = $(sort $(foreach x,$1,$(call safe_shell,cat '$(index_dir)/$x')))
+override index_list_pkg_files = $(sort $(foreach x,$1,$(if $(wildcard $(index_dir)/$x),,$(error Package '$x' is not installed))$(call safe_shell,cat '$(index_dir)/$x')))
 
 
 # --- PACKAGE MANAGEMENT INTERNALS ---
@@ -438,11 +459,11 @@ override pkg_request_list_remove = $(call pkg_stop_if_not_in_request_list,$1)$(c
 # Returns a list of packages with prefixes: `>` means a package should be installed, and `<` means it should be removed.
 #   Note that we do `$(foreach x,$(pkg_request_list) ...` rather than passing the entire list
 #   to `database_query_deps` to reduce the length of command-line parameters that are passed around.
-override pkg_compute_delta = \
+override pkg_compute_delta = $(strip \
 	$(eval override _state_cur := $(index_list_all_installed))\
 	$(eval override _state_target := $(sort $(foreach x,$(pkg_request_list),$(call database_query_full_name,$(call database_query_deps,$x)))))\
 	$(addprefix <,$(filter-out $(_state_target),$(_state_cur)))\
-	$(addprefix >,$(filter-out $(_state_cur),$(_state_target)))
+	$(addprefix >,$(filter-out $(_state_cur),$(_state_target))))
 
 # Prints a delta.
 # $1 is the delta data.
@@ -474,6 +495,18 @@ override pkg_pretty_print_delta_fancy = \
 override pkg_apply_delta = \
 	$(call index_force_uninstall,$(patsubst <%,%,$(filter <%,$1)))\
 	$(call index_force_install,$(patsubst >%,%,$(filter >%,$1)))
+
+# Fancy-prints a delta, then applies it.
+# The delta will be preceeded by a disclaimer.
+# $1 is the delta data.
+override pkg_print_then_apply_delta = \
+	$(if $1,\
+		$(info Following changes will be applied:)\
+		$(call pkg_pretty_print_delta_fancy,$1)\
+		$(call pkg_apply_delta,$1)\
+	,\
+		$(info No actions needed.)\
+	)
 
 
 # --- TARGETS ---
@@ -519,25 +552,16 @@ $(call act_section, PACKAGE DATABASE )
 
 # Lists all available packages in the repo, without versions.
 $(call act, list-all \
-,,List all packages available in the repository.$(lf)Doesn't output package versions.))
+,,List all packages available in the repository.$(lf)Doesn't output package versions.)
 	$(foreach x,$(database_query_available),$(info $x))
 	@true
 
-# Downloads a new database. Backups the old one as `database.mk.bak`
+# Downloads a new database.
 $(call act, update \
-,,Download a new database. The existing database will be backed up.\
-$(lf))
-	$(if $(wildcard database.mk),$(call safe_shell_exec,mv -f 'database.mk' 'database.mk.bak' || true))
-	$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')
-	$(call safe_shell_exec,rm -f '$(database_tmp_file)')
+,,Download a new database. The existing database will be backed up.)
+	$(call safe_shell_exec,$(MAKE) 1>&2 -B '$(database_processed_file)')
 	$(database_query_empty)
-	$(if $(database_not_equal_to_backup),\
-		$(info A new database was downloaded.),\
-		$(info The database did not change.))
-	$(eval _local_delta := $(pkg_compute_delta))\
-	$(if $(strip $(_local_delta)),\
-		$(info Following changes should be applied:)$(call pkg_pretty_print_delta_fancy,$(_local_delta))$(info Run `make apply-delta` to apply changes.),\
-		$(info No updates are available for the installed packages.))
+	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 
 # Accepts a list of packages. Returns the same list, but with package versions specified.
@@ -556,7 +580,7 @@ $(call act, get-deps \
 $(call act, clean-database \
 ,,Delete the package database$(comma) which contains the information about the repository.\
 $(lf)A new database will be downloaded next time it is needed.)
-	@rm -f database.mk database.mk.bak $(database_tmp_file)
+	@rm -f '$(database_processed_file)' '$(database_processed_file_bak)' '$(database_tmp_file)' '$(database_tmp_file_original)'
 	@rm -rf '$(database_tmp_dir)'
 
 
@@ -579,30 +603,32 @@ $(call act, list-req \
 $(call act, install \
 ,packages,Install packages.$(lf)Equivalent to 'make request' followed by 'make apply-delta'.)
 	$(call pkg_request_list_add,$p)
-	$(info Will apply following changes:)
-	$(eval override _local_delta := $(pkg_compute_delta))
-	$(call pkg_pretty_print_delta_fancy,$(_local_delta))
-	$(call pkg_apply_delta,$(_local_delta))
+	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 
 # Removes packages (without versions specified).
 $(call act, remove \
 ,packages,Remove packages.$(lf)Equivalent to 'make undo-request' followed by 'make apply-delta'.)
 	$(call pkg_request_list_remove,$p)
-	$(info Will apply following changes:)
-	$(eval override _local_delta := $(pkg_compute_delta))
-	$(call pkg_pretty_print_delta_fancy,$(_local_delta))
-	$(call pkg_apply_delta,$(_local_delta))
+	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 
-# Removes all packages (without versions specified).
+# Removes all packages.
 $(call act, remove-all-packages \
 ,,Remove all packages.)
+	$(info Deleting files...)
 	$(call pkg_request_list_reset)
-	$(info Will apply following changes:)
-	$(eval override _local_delta := $(pkg_compute_delta))
-	$(call pkg_pretty_print_delta_fancy,$(_local_delta))
-	$(call pkg_apply_delta,$(_local_delta))
+	$(call safe_shell_exec,rm -rf $(ROOT_DIR)/*)
+	$(call safe_shell_exec,rm -rf $(index_dir)/*)
+	@true
+
+# Removes all packages.
+$(call act, reinstall-all \
+,,Reinstall all packages.)
+	$(info Deleting files...)
+	$(call safe_shell_exec,rm -rf $(ROOT_DIR)/*)
+	$(call safe_shell_exec,rm -rf $(index_dir)/*)
+	$(call pkg_apply_delta,$(pkg_compute_delta))
 	@true
 
 # Updates the database, upgrades packages, and fixes stuff.
@@ -616,12 +642,9 @@ $(call act, upgrade \
 $(call act, upgrade-keep-cache \
 ,,Update package database and upgrade all packages.\
 $(lf)Don't remove unused packages from the cache.)
-	$(call safe_shell_exec, $(MAKE) 1>&2 update-database)
-	$(info Will apply following changes:)
-	$(call safe_shell_exec, $(MAKE) 1>&2 delta)
-	$(call safe_shell_exec, $(MAKE) 1>&2 apply-delta)
+	$(call safe_shell_exec, $(MAKE) 1>&2 update)
+	$(call pkg_apply_delta,$(pkg_compute_delta))
 	$(info Cleaning up...)
-	$(call safe_shell_exec, $(MAKE) 1>&2 purge-broken)
 	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
 	@true
 
@@ -724,7 +747,9 @@ $(call act, list-broken \
 
 # Destroys broken packages.
 $(call act, purge-broken \
-,,Destroys all broken packages.)
+,,Destroys all broken packages.\
+$(lf)Normally you don't need to call this manually$(comma) as broken packages are\
+$(lf)reinstalled automatically by `make apply-delta` and other commands.)
 	$(index_purge_broken)
 	@true
 

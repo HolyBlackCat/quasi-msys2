@@ -2,8 +2,10 @@ cache/**
 database/**
 index/**
 root/**
+database.current_original
 database.db
 database.mk
 database.mk.bak
+msys2_pacmake_base_dir
 requested_packages.txt
 

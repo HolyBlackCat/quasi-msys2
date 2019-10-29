@@ -94,6 +94,17 @@ You can run them using Wine:
 
 If you want to run them from an arbitrary directory, you need to set the `WINEPATH` environment variable:
 
-    WINEPATH=/<full-path>/root/mingw64/bin wine gcc --version
+    export WINEPATH=/<full-path>/root/mingw64/bin
+    wine gcc --version
 
 Have fun.
+
+## Known issues
+
+* Package signatures are not verified, beware!
+
+* Pre/post-install actions are not executed; we simply unpack the package archives. In most cases this is good enough.
+
+* If a package depends on a specific version of some other package, the exact version of that package is not checked. This shouldn't affect you, as long as you don't manually install outdated packages.
+
+* Package conflicts are handled in a crude manner. Information about package conflits provided by the package database is ignored, but if you try to install a package providing a file that already exists, the installation will fail. In most cases this is good enough.

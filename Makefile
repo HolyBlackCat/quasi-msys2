@@ -306,8 +306,7 @@ override cache_unfinished_prefix = ---
 # $1 is the url, relative to the repo url.
 # If the is missing in the cache, downloads it.
 override cache_download_file_if_missing = \
-	$(if $(wildcard $(CACHE_DIR)/$(notdir $1)),\
-		$(call print_log,Using cached '$(notdir $1)'),\
+	$(if $(wildcard $(CACHE_DIR)/$(notdir $1)),,\
 		$(call print_log,Downloading '$(notdir $1)'...)$(call safe_shell_exec,$(call use_wget,$(dir $(REPO_DB_URL))$1,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)))\
 	$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)' '$(CACHE_DIR)/$(notdir $1)'))
 
@@ -493,6 +492,7 @@ override pkg_pretty_print_delta_fancy = \
 # Applies a delta.
 # $1 is the delta data.
 override pkg_apply_delta = \
+	$(call cache_want_packages,$(patsubst >%,%,$(filter >%,$1)))\
 	$(call index_force_uninstall,$(patsubst <%,%,$(filter <%,$1)))\
 	$(call index_force_install,$(patsubst >%,%,$(filter >%,$1)))
 

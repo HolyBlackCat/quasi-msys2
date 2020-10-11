@@ -3,8 +3,10 @@
 # URL of the repository database, such as `http://repo.msys2.org/mingw/x86_64/mingw64.db`.
 REPO_DB_URL := http://repo.msys2.org/mingw/x86_64/mingw64.db
 
-# Suffix of the package archives, such as `-any.pkg.tar.xz`.
-REPO_PACKAGE_ARRCHIVE_SUFFIX := -any.pkg.tar.xz
+# Suffix of the package archives, such as `-any.pkg.tar.zst`.
+# Can be a space-separated lists of such suffixes, those will be tried in the specified order when downloading packages.
+# At some point pacman switched from `.tar.zst` to `.tar.xz`, but MSYS2 repos still have `.tar.xz` around for old packages, so we have to support both.
+REPO_PACKAGE_ARCHIVE_SUFFIXES := -any.pkg.tar.zst -any.pkg.tar.xz
 
 # A common prefix for all packages.
 # You don't have to set this variable, as it's only used for convenience,
@@ -23,7 +25,7 @@ KEEP_UNPROCESSED_DATABASE := 0
 
 
 # --- VERSION ---
-override version := 1.0.2
+override version := 1.1.0
 
 
 # --- GENERIC UTILITIES ---
@@ -40,18 +42,27 @@ $(strip)
 $(strip)
 endef
 
-# Same as `$(shell ...)`, but triggers a error on failure.
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
-override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, status $(.SHELLSTATUS)))
+# Same as `$(shell ...)`, but triggers a error on failure.
+override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
+# Same as `$(shell ...)`, expands to the shell status code rather than the command output.
+override shell_status = $(call,$(shell $1))$(.SHELLSTATUS)
 else
-override safe_shell = $(info Shell command: $1)$(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, status $(.SHELLSTATUS)))
+# Same functions but with logging.
+override safe_shell = $(info Shell command: $1)$(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
+override shell_status = $(info Shell command: $1)$(call,$(shell $1))$(.SHELLSTATUS)$(info Exit code: $(.SHELLSTATUS))
 endif
 
 # Same as `safe_shell`, but discards the output and expands to nothing.
 override safe_shell_exec = $(call,$(call safe_shell,$1))
 
-# Downloads url $1 to file $2. Deletes the file on failure.
-override use_wget = $(call safe_shell_exec,wget '$1' -q -c --show-progress -O '$2' || (rm -f '$2' && false))
+# Same as `$(wildcard ...)`, but without the dumb caching issues.
+# Make tends to cache the results of `wildcard`, and doesn't invalidate them when it should.
+override wildcard_without_cache = $(eval override _local_list := $(call safe_shell,echo $1))$(if $(findstring *,$(_local_list)),,$(_local_list))
+
+# Downloads url $1 to file $2.
+# On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.
+override use_wget = $(filter-out 0,$(call shell_status,wget '$1' $(if $(filter --trace,$(MAKEFLAGS)),,-q) -c --show-progress -O '$2' || (rm -f '$2' && false)))
 
 # Prints $1 to stderr.
 override print_log = $(call safe_shell_exec,echo >&2 '$(subst ','"'"',$1)')
@@ -173,7 +184,7 @@ override code_pkg_target = \
 $(database_tmp_file):
 	$(call print_log,Downloading package database...)
 	$(call safe_shell_exec,rm -f '$@')
-	$(call use_wget,$(REPO_DB_URL),$@)
+	$(if $(call use_wget,$(REPO_DB_URL),$@),$(error Unable to download the database. Try again with `--trace` to debug))
 	@true
 
 $(database_processed_file): $(database_tmp_file)
@@ -303,12 +314,22 @@ endif
 # A prefix for unfinished downloads.
 override cache_unfinished_prefix = ---
 
-# $1 is the url, relative to the repo url.
-# If the is missing in the cache, downloads it.
+# $1 is the url, relative to the repo url. If it's a space-separated list of urls, they are tried in order until one works.
+# If the file is not cached, it's downloaded.
 override cache_download_file_if_missing = \
-	$(if $(wildcard $(CACHE_DIR)/$(notdir $1)),,\
-		$(call print_log,Downloading '$(notdir $1)'...)$(call safe_shell_exec,$(call use_wget,$(dir $(REPO_DB_URL))$1,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)))\
-	$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $1)' '$(CACHE_DIR)/$(notdir $1)'))
+	$(if $(wildcard $(foreach x,$1,$(CACHE_DIR)/$(notdir $x))),,\
+		$(eval override _local_continue := y)\
+		$(eval override _local_first := y)\
+		$(foreach x,$1,$(if $(_local_continue),\
+			$(if $(_local_first),$(eval override _local_first :=),$(info Failed, trying different suffix.))\
+			$(call print_log,Downloading '$(notdir $x)'...)\
+			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),,\
+				$(eval override _local_continue :=)\
+				$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)' '$(CACHE_DIR)/$(notdir $x)')\
+			)\
+		))\
+		$(if $(_local_continue),$(error Unable to download the package. Try again with `--trace` to debug))\
+	)
 
 # Deletes unfinished downloads.
 override cache_purge_unfinished = $(foreach x,$(wildcard $(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f '$x'))
@@ -321,15 +342,25 @@ override cache_want_packages = \
 	$(cache_purge_unfinished)\
 	$(foreach x,$1,$(if $(findstring ??,$x),\
 		$(error Can't add package to cache: unknown package: '$x'),\
-		$(call cache_download_file_if_missing,$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX))\
+		$(call cache_download_file_if_missing,$(addprefix $x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES)))\
 	))
+
+# $1 is a package name with version.
+# Returns the file name of its archive, which must be already in the cache. If it's not cached, emits an error.
+override cache_find_pkg_archive = $(eval override _local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call wildcard_without_cache,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Internal error: Can't find in the cache: $1))
 
 # $1 is a list of packages, with versions.
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.
-override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,tar -tf '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'))
+# Note `set -o pipefail`, without it we can't detect failure of lhs of the `|` shell operator.
+# Note `bash -c`. We can't use the default shell (`sh`, which is a symlink for `dash` on Ubuntu), because it doesn't support `pipefail`.
+override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o pipefail && tar -tf '$(call cache_find_pkg_archive,$x)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'"))
 
 # Lists current packages sitting in the cache.
-override cache_list_current = $(patsubst $(CACHE_DIR)/%$(REPO_PACKAGE_ARRCHIVE_SUFFIX),%,$(wildcard $(CACHE_DIR)/*))
+override cache_list_current = \
+	$(eval override _local_files := $(wildcard $(CACHE_DIR)/*))\
+	$(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),\
+		$(patsubst $(CACHE_DIR)/%$x,%,$(filter $(CACHE_DIR)/%$x,$(_local_files)))\
+	)
 
 # Lists all archives (including missing ones) used by installed packages.
 override cache_list_missing = $(filter-out $(cache_list_current),$(index_list_all_installed))
@@ -388,7 +419,7 @@ override index_force_install_single_pkg = \
 	$(foreach x,$(_local_files),$(if $(wildcard $(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$1': file `$(subst <, ,$x)` already exists)))\
 	$(foreach x,$(_local_files),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
 	$(call print_log,Extracting '$1'...)\
-	$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(CACHE_DIR)/$1$(REPO_PACKAGE_ARRCHIVE_SUFFIX)' --exclude='.*')\
+	$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(call cache_find_pkg_archive,$1)' --exclude='.*')\
 	$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$1' '$(index_dir)/$1')\
 	$(call print_log,Installed '$1')
 
@@ -650,7 +681,7 @@ $(lf)Don't remove unused packages from the cache.)
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, upgrade-clean-cache \
-,,Update package database and upgrade packages.\
+,,Update package database and upgrade all packages.\
 $(lf)Clean the cache.)
 	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
 	$(call safe_shell_exec, $(MAKE) 1>&2 clean-cache)
@@ -809,9 +840,11 @@ $(call act, cache-add-missing \
 $(call act, cache-remove-unused \
 ,,Removes packages that are not currently installed from the cache.)
 	$(foreach x,$(cache_list_unused),\
-		$(call safe_shell_exec,rm -f '$(CACHE_DIR)/$x$(REPO_PACKAGE_ARRCHIVE_SUFFIX)')\
+		$(foreach y,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),\
+			$(call safe_shell_exec,rm -f '$(CACHE_DIR)/$x$y')\
+		)\
 		$(info Removed '$x' from cache)\
-		)
+	)
 	@true
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.

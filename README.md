@@ -14,6 +14,13 @@ MSYS2 shell and command-line utilties don't work on Linux even under Wine.
 
 But ***compilers and libraries provided by MSYS2 **do** work under Wine. Using this script, you can download them.***
 
+## Prerequisites
+
+* `make` (obviously)
+* `wget`
+* `tar`
+* `zstd` (which `tar` uses to unpack `.tar.zst` archives).
+
 ## Usage
 
 `make help` displays the full list of commands.

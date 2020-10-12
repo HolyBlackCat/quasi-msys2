@@ -12,7 +12,7 @@ MSYS2 normally runs on Windows, and provides a linux-like build environment that
 
 MSYS2 shell and command-line utilties don't work on Linux even under Wine.
 
-But ***compilers and libraries provided by MSYS2 **do** work under Wine. Using this script, you can download them.***
+But **compilers and libraries provided by MSYS2 **do** work under Wine. This script lets you download them!**
 
 ## Prerequisites
 
@@ -25,16 +25,15 @@ But ***compilers and libraries provided by MSYS2 **do** work under Wine. Using t
 
 `make help` displays the full list of commands.
 
-Here are the most common commands:
+Here are the most common ones:
 
 * `make list-all` - List all packages available in the repository.<br>
-  This command will only download the repository database on the first run.<br>
-  Use `make upgrade` to update the database.
+  This command will only download the repository database on the first run. Updating the database is explained below.
 
   Use `make list-all | grep <package>` to search for packages.
 
 * `make install <packages>` - Install packages.<br>
-  The packages are installed into the `./root/`.
+  The packages are installed to the `./root/`.
 
   <sup>Most package names share a common prefix: `mingw-w64-x86_64-gcc mingw-w64-x86_64-clang ...`. You can use `_` instead of this long prefix, e.g. `make install _gcc` instead of `make install mingw-w64-x86_64-gcc`.</sup>
 
@@ -42,6 +41,8 @@ Here are the most common commands:
 
 * `make upgrade` - Download the latest package database and install package updates.<br>
   Do this routinely to keep your installation up to date.
+
+  <sup>To update only the database and not the packages, run `make update`.</sup>
 
 * `make list-ins` - List all installed packages.
 
@@ -59,7 +60,7 @@ Normally this is fixed automatically, but you can also do it manually:
 
   The output is a list of packages, with prefixes: `+` for packages to be installed, `-` for packages to be removed, `>` for packages to be updated.
 
-* `make apply-delta` - Fix the installation by applying necessary changes as displayed by `make delta`.
+* `make apply-delta` - Fix the installation by applying necessary the changes as displayed by `make delta`.
 
   This is done automatically by most high-level commands, such as `upgrade`, `install`, and `remove`.
 
@@ -108,10 +109,10 @@ Have fun.
 
 ## Known issues
 
-* Package signatures are not verified, beware!
+* Package signatures are not verified! But at least we're downloading the files using HTTPS by default.
 
 * Pre/post-install actions are not executed; we simply unpack the package archives. In most cases this is good enough.
 
 * If a package depends on a specific version of some other package, the exact version of that package is not checked. This shouldn't affect you, as long as you don't manually install outdated packages.
 
-* Package conflicts are handled in a crude manner. Information about package conflits provided by the package database is ignored, but if you try to install a package providing a file that already exists, the installation will fail. In most cases this is good enough.
+* Package conflicts are handled in a crude manner. Information about package conflits provided in the package database is ignored, but if you try to install a package providing a file that already exists, the installation will fail. In most cases this is good enough.

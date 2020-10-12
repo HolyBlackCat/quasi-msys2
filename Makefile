@@ -1,7 +1,7 @@
 # --- CONFIG ---
 
-# URL of the repository database, such as `http://repo.msys2.org/mingw/x86_64/mingw64.db`.
-REPO_DB_URL := http://repo.msys2.org/mingw/x86_64/mingw64.db
+# URL of the repository database, such as `https://repo.msys2.org/mingw/x86_64/mingw64.db`.
+REPO_DB_URL := https://repo.msys2.org/mingw/x86_64/mingw64.db
 
 # Suffix of the package archives, such as `-any.pkg.tar.zst`.
 # Can be a space-separated lists of such suffixes, those will be tried in the specified order when downloading packages.

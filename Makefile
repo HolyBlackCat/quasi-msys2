@@ -347,7 +347,7 @@ override cache_want_packages = \
 
 # $1 is a package name with version.
 # Returns the file name of its archive, which must be already in the cache. If it's not cached, emits an error.
-override cache_find_pkg_archive = $(eval override _local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call wildcard_without_cache,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Internal error: Can't find in the cache: $1))
+override cache_find_pkg_archive = $(eval override _local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call wildcard_without_cache,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Can't find package in the cache: $1))
 
 # $1 is a list of packages, with versions.
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.

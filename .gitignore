@@ -2,9 +2,9 @@ cache/**
 database/**
 index/**
 root/**
+fake_bin/**
 database.current_original
 database.db
 database.mk
 database.mk.bak
 requested_packages.txt
-

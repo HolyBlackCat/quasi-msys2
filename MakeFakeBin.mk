@@ -21,4 +21,3 @@ all:
 	$(call safe_shell_exec,mkdir -p '$(DIR)')
 	$(foreach x,$(NAMES),$(call safe_shell_exec,echo >'$(DIR)/$x' 'wine $x $$@')$(call safe_shell_exec,chmod +x '$(DIR)/$x'))
 	@true
-

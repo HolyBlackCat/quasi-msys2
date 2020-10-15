@@ -42,21 +42,28 @@ override sudo_exec = \
 	$(call safe_shell_exec,sudo $1 1>&2)\
 	$(info Success.)
 
+# If not in quiet mode, calling this will make sudo ask you for the password next time you use it.
+override reset_sudo = $(if $(QUIET),,$(call safe_shell_exec,sudo -k))
+
 
 # This enables the whole `binfmt_misc` and registers the right executable format.
 .PHONY: enable
 enable:
 	$(call explain,This makefile will configure your system to transparently run `.exe` files using wine.)
 	$(call explain,See link for more details: https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst)
+	$(call explain,)
 	$(call explain,Running most of the commands will require root permissions$(comma) you'll be asked for a `sudo` password.)
 	$(call explain,You'll be asked for confirmation before running each such command$(comma) restart with `QUIET=1` to disable confirmations.)
+	$(call explain,In the quiet mode you also won't be asked for a root password if you recently ran `sudo`.)
+	$(call explain,)
 	$(call explain,All effects will be undone on a reboot.)
 	$(call explain,To undo them manually$(comma) run this makefile with `unregister-format` to unregister our custom executable format.)
 	$(call explain,You can also use `disable-binfmt_misc` to disable the whole system of custom executable formats.)
-	$(call explain,Those actions also will be completely undone on a reboot.)
+	$(call explain,Those actions too will be completely undone on a reboot.)
 	$(call explain,)
 	$(call explain,Press Enter to continue or Ctrl+C to abort.)
 	$(call confirm)
+	$(call reset_sudo)
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\
 		$(info `binfmt_misc` mounted? YES)\
 	,\
@@ -88,6 +95,7 @@ enable:
 unregister-format:
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\
 		$(if $(wildcard /proc/sys/fs/binfmt_misc/DOSWin),\
+			$(call reset_sudo)\
 			$(call sudo_exec,bash -c 'echo -1 >/proc/sys/fs/binfmt_misc/DOSWin')\
 		,\
 			$(info The executable format is not registered, nothing to do.)\
@@ -102,6 +110,7 @@ unregister-format:
 disable-binfmt_misc:
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\
 		$(if $(filter enabled,$(call safe_shell,cat /proc/sys/fs/binfmt_misc/status)),\
+			$(call reset_sudo)\
 			$(call sudo_exec,bash -c 'echo 0 >/proc/sys/fs/binfmt_misc/status')\
 		,\
 			$(info `binfmt_misc` is disabled, nothing to do.)\

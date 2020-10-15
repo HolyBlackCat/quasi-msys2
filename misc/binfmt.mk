@@ -44,6 +44,7 @@ override sudo_exec = \
 
 
 # This enables the whole `binfmt_misc` and registers the right executable format.
+.PHONY: enable
 enable:
 	$(call explain,This makefile will configure your system to transparently run `.exe` files using wine.)
 	$(call explain,See link for more details: https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst)
@@ -83,6 +84,7 @@ enable:
 	@true
 
 # Unregister the single executable format.
+.PHONY: unregister-format
 unregister-format:
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\
 		$(if $(wildcard /proc/sys/fs/binfmt_misc/DOSWin),\
@@ -96,6 +98,7 @@ unregister-format:
 	@true
 
 # Disable all the formats.
+.PHONY: disable-binfmt_misc
 disable-binfmt_misc:
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\
 		$(if $(filter enabled,$(call safe_shell,cat /proc/sys/fs/binfmt_misc/status)),\

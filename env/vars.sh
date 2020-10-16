@@ -2,16 +2,26 @@
 __dummy_func() {
     echo 'Make sure you run this script using `source ...`.'
 
+    # Helper variable pointing to the msys2_pacmake installation directory.
     local installation_path="$(realpath "$(dirname "$BASH_SOURCE")"/..)"
     # Make sure the resulting variable is not empty due to some error. If it is, abort.
     test -z "$installation_path" && return
+
+    # This points to the MinGW installation path, i.e. `root/mingw64`.
     export "MINGW_ROOT=$installation_path/root/mingw64"
     echo 'Set MINGW_ROOT to `'"$MINGW_ROOT"'`.'
 
+    # Those are flags for our Clang wrapper in `env/wrappers`.
+    export "WIN_CLANG_FLAGS=--target=x86_64-w64-windows-gnu --sysroot=$MINGW_ROOT"
+    echo 'Set WIN_CLANG_FLAGS to `'"$WIN_CLANG_FLAGS"'`.'
+    echo 'If your native Clang is suffixed with a version, manually set WIN_CLANG_SUFFIX to the version, e.g. `-11`.'
+
+    # Wine will look for executables in this directory.
     export "WINEPATH=$MINGW_ROOT/bin"
     echo 'Set WINEPATH to `'"$WINEPATH"'`.'
 
-    local new_path="$(make -f "$(dirname "$BASH_SOURCE")/helpers/AddToPath.mk" "dirs=$installation_path/fake_bin:$WINEPATH")"
+    # Update the PATH.
+    local new_path="$(make -f "$(dirname "$BASH_SOURCE")/internal/AddToPath.mk" "dirs=$installation_path/env/wrappers:$installation_path/env/fake_bin:$WINEPATH")"
     test -z "$new_path" && return
     export "PATH=$new_path"
     echo 'Your PATH is now equal to `'"$PATH"'`.'

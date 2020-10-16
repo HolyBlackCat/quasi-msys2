@@ -2,7 +2,7 @@ cache/**
 database/**
 index/**
 root/**
-fake_bin/**
+env/fake_bin/**
 database.current_original
 database.db
 database.mk

@@ -26,7 +26,7 @@ override installation_root := $(dir $(word 1,$(MAKEFILE_LIST)))..
 $(if $(wildcard $(installation_root)/msys2_pacmake_base_dir),,$(error Looks like this makefile is in a wrong directory. Refuse to continue))
 
 
-DIR := fake_bin
+DIR := env/fake_bin
 override DIR := $(installation_root)/$(DIR)
 
 PATTERN := root/mingw64/bin/*.exe

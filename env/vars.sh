@@ -1,6 +1,6 @@
 # Make a dummy function to be able to have local variables.
 __dummy_func() {
-    echo 'Make sure you run this script using `source ...`.'
+    test -z "$QUIET" && echo -e 'Make sure you run this script using `source ...`.\nAdd `QUIET=1` to hide this message.\n'
 
     # Helper variable pointing to the msys2_pacmake installation directory.
     local installation_path="$(realpath "$(dirname "$BASH_SOURCE")"/..)"

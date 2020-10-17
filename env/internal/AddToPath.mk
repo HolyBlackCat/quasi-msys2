@@ -1,5 +1,5 @@
 # This makefile prints the contents of PATH, with the value of `dirs` appended to the front of it.
-# If that directory is already mentioned, any duplicates of it are removed.
+# If those directories are already mentioned, any duplicates of them are removed.
 # We have no way to set the resulting PATH, so we print it to `stdout`.
 
 

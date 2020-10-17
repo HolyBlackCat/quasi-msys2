@@ -63,6 +63,12 @@ enable:
 	$(call explain,)
 	$(call explain,Press Enter to continue or Ctrl+C to abort.)
 	$(call confirm)
+	$(if $(filter-out 0,$(call shell_status,which wine)),\
+		$(info Wine is not installed!)\
+		$(info A native Clang can cross-compile without it, but nothing else will function.)\
+		$(info If that's ok, skip this configuration script and run the remaining ones.)\
+		$(error Wine not found)\
+	)
 	$(call reset_sudo)
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\
 		$(info `binfmt_misc` mounted? YES)\

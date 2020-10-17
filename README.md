@@ -2,30 +2,64 @@
 
 **What is this?**
 
-`msys2-pacmake` a tiny package manager (a single makefile), designed to work with MSYS2 repositories.
+A small Linux-to-Windows cross-compilation environment.
 
-It's designed to run on Linux, since MSYS2 shell and package manager don't work on Linux even under Wine.
+Features:
 
-**What is MSYS2 and why would I want MSYS2 packages on Linux?**
-
-MSYS2 normally runs on Windows, and provides a linux-like build environment that includes ports of common command-line utilities, major compilers (GCC and Clang, targeting Windows x86 and x64) and many prebuilt libraries.
-
-MSYS2 shell and command-line utilties don't work on Linux even under Wine.
-
-But **compilers and libraries provided by MSYS2 **do** work under Wine. This script lets you download them!**
+* A tiny package manager, working with MSYS2 repositories.<br>
+  From there you can install an up-to-date GCC and some common libraries.
+* A script that temporarily configures your kernel to transparently run `.exe` files with Wine, as if they were native executables. All kernel configuration will be undone on a reboot, or can be undone manually with the provided script.
+* CMake and Autotools will be tricked into thinking that they're doing a native Windows build!
 
 ## Prerequisites
 
-* `make` (obviously)
-* `wget`
-* `tar`
-* `zstd` (which `tar` uses to unpack `.tar.zst` archives).
+Mandatory:
 
-## Usage
+* `make`, `wget`, `tar`, `zstd` (which `tar` uses to unpack `.tar.zst` archives)
 
-`make help` displays the full list of commands.
+Recommended:
 
-Here are the most common ones:
+* **Clang**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well, but a native Clang is much faster.
+
+* **Wine** to transparently run Windows programs.
+
+## Basic usage
+
+* `make install _gcc _gdb` to install MSYS2 GCC and GDB.<br>
+  Then you can run `make upgrade` from time to time to update the installed packages.
+
+* `source env/all_quiet.sh` to set up the build environment and configure the kernel.<br>
+  You need to run this in each shell you want to build from.
+
+  This script goes over all files in `env/*`, executing shell scripts with `source <file>` and makefiles with `make -f <file>`.
+
+  If you want to know more about what each file does, run them manually. They will print some information about what they're doing.
+
+  The kernel configuration is done by `env/binfmk.mk`, for that it will ask you for a `sudo` password. When run manually, this makefile will behave a bit more nicely, asking you for confirmation before executing each `sudo` command. If you don't trust the makefile, you can inspect it and run the commands manually, that shouldn't be hard.
+
+In a configured build environment, you can do following:
+
+  * Invoke `.exe` files transparently as if they were native executables, Wine will be used for that.
+
+  * Cross-compile to Windows using your native Clang. Use `win-clang` and `win-clang++` wrappers.
+
+  * Cross-compile to Windows using MSYS2 GCC or Clang running under Wine. Normally you want to avoid this, since a native Clang is much faster.
+
+    While using MSYS2 GCC makes some sense if you prefer GCC over Clang, using MSYS2 Clang is completely pointless, since a native Clang will do the same thing but faster.
+
+  * Cross-compile libraries using Autotools and CMake.
+
+    Autotools (aka `./configure && make`) should work out of the box.
+
+    For CMake you should be using the `win-cmake` wrapper.
+
+## Package manager usage
+
+You can install various libraries from the package manager.
+
+Run `make help` to get the full list of commands it supports.
+
+Here are some common ones:
 
 * `make list-all` - List all packages available in the repository.<br>
   This command will only download the repository database on the first run. Updating the database is explained below.
@@ -60,7 +94,7 @@ Normally this is fixed automatically, but you can also do it manually:
 
   The output is a list of packages, with prefixes: `+` for packages to be installed, `-` for packages to be removed, `>` for packages to be updated.
 
-* `make apply-delta` - Fix the installation by applying necessary the changes as displayed by `make delta`.
+* `make apply-delta` - Fix the installation by applying the necessary the changes as displayed by `make delta`.
 
   This is done automatically by most high-level commands, such as `upgrade`, `install`, and `remove`.
 
@@ -86,28 +120,7 @@ This can be solved using several more advanced commands listed below. Most of th
 
 The list above contains only the most common commands. See `make help` for more.
 
-**Switching repositores**
-
-By default the script targets the `x86_64` repository, which contains 64-bit compilers and libraries.
-
-You can switch to the `i686` (32-bit) repository by editing the constants at the beginning of `Makefile`.
-
-## I installed a compiler, how do I use it?
-
-Installed compilers should be located in `./root/mingw64/bin/`.
-
-You can run them using Wine:
-
-    cd ./root/mingw64/bin && wine gcc --version
-
-If you want to run them from an arbitrary directory, you need to set the `WINEPATH` environment variable:
-
-    export WINEPATH=/<full-path>/root/mingw64/bin
-    wine gcc --version
-
-Have fun.
-
-## Known issues
+**Known issues**
 
 * Package signatures are not verified! But at least we're downloading the files using HTTPS by default.
 
@@ -116,3 +129,15 @@ Have fun.
 * If a package depends on a specific version of some other package, the exact version of that package is not checked. This shouldn't affect you, as long as you don't manually install outdated packages.
 
 * Package conflicts are handled in a crude manner. Information about package conflits provided in the package database is ignored, but if you try to install a package providing a file that already exists, the installation will fail. In most cases this is good enough.
+
+## Backing up installation
+
+The whole installation directory can be moved around, it doesn't contain any absolute paths.
+
+But you don't need to copy everything if you're making a backup, assuming all files came from the package manager. You only need a clean copy of the repository, and following files:
+
+* `database.mk` — The package database.
+* `requested_packages.txt` — The list of packages you've explicitly installed.
+* Contents of the `cache/` directory, which contains archived versions of all installed packages. Before backing up the cache, make sure it's up-to-date and minimal by running `make cache-installed-only`.
+
+To restore such backup to a working state, run `make apply-delta` in it.

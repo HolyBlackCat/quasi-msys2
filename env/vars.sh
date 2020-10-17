@@ -67,7 +67,7 @@ __dummy_func() {
 
             # This custom variable specifies the flags for our Clang wrapper in `env/wrappers`.
             # Note that the target is different from the value of `MINGW_TRIPLET`. That's slightly weird but that's what MSYS2 does, so...
-            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=x86_64-w64-windows-gnu --sysroot=$MINGW_ROOT"
+            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=x86_64-w64-windows-gnu --sysroot=$MINGW_ROOT -pthread"
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.
@@ -115,6 +115,17 @@ __dummy_func() {
     # Autotools will read config from that file.
     export "CONFIG_SITE=$installation_path/env/config/config.site"
     echo "CONFIG_SITE = $CONFIG_SITE"
+
+    # Check if MSYS2 CMake is installed. Warn if it is, because it doesn't work properly under Wine,
+    # and it will be shadowed by our wrapper in `env/wrappers` anyway.
+    test -f "$MINGW_ROOT/bin/cmake.exe" && echo "WARNING: MSYS2 CMake is installed. It won't function properly, and our wrapper will shadow it anyway."
+    # This variable is used by our wrapper in `env/wrappers`. We use an absolute path
+    # to avoid collisions with MSYS2 CMake if it's installed for some reason.
+    export "WIN_NATIVE_CMAKE=$(which cmake)"
+    echo "WIN_NATIVE_CMAKE = $WIN_NATIVE_CMAKE"
+    # This variable is also used by our wrapper in `env/wrappers`, and contains the extra CMake flags.
+    export "WIN_CMAKE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=$installation_path/env/config/toolchain.cmake -DCMAKE_INSTALL_PREFIX=$MINGW_ROOT"
+    echo "WIN_CMAKE_FLAGS = $WIN_CMAKE_FLAGS"
 
     echo ''
 

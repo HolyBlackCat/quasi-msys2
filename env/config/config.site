@@ -1,7 +1,7 @@
 # This file is in public domain.
 # Original author: Karlson2k (Evgeny Grin)
 #
-# This file contains default configuration for autotools.
+# This file contains default configuration for Autotools.
 # It's based on `/mingw64/etc/config.site` shipped with MSYS2.
 # We can't use the original file because it's a part of the "MSYS" repo rather than the "MINGW64" repo that we use.
 # Also this file is slightly modified compared to the original.

@@ -67,7 +67,7 @@ enable:
 		$(info Wine is not installed!)\
 		$(info A native Clang can cross-compile without it, but nothing else will function.)\
 		$(info If that's ok, skip this configuration script and run the remaining ones.)\
-		$(error Wine not found)\
+		$(error Aborted)\
 	)
 	$(call reset_sudo)
 	$(if $(wildcard /proc/sys/fs/binfmt_misc),\

@@ -74,15 +74,24 @@ override print_log = $(call safe_shell_exec,echo >&2 '$(subst ','"'"',$1)')
 override remove_suffix = $(subst <<<,,$(subst $1$(lastword $(subst $1, ,$2)<<<),<<<,$2<<<))
 
 
-# --- CHECK WORKING DIRECTORY ---
+# --- CHECK PRECONDITIONS ---
 
 override installation_directory_marker := msys2_pacmake_base_dir
 
-# Make sure `$(installation_directory_marker)` file exists in the current directory, otherwise stop.
+# Check if the `$(installation_directory_marker)` file exists in the current directory, otherwise stop.
+# This makes sure the working directory is correct, to avoid accidentally creating files outside of the installation directory.
 ifeq ($(wildcard ./$(installation_directory_marker)),)
 $(info Incorrect working directory.)
 $(info Invoke `make` directly from the installation directory,)
 $(info or specify the installation directory using `-C <dir>` flag.)
+$(error Aborted)
+endif
+
+# Check if the `MINGW_ROOT` environment variable exists. If it is, it means `env/vars.sh` was already invoked.
+# In this case we refuse to run, because the makefile may not work correctly with MSYS2 stuff in the PATH.
+ifneq ($(MINGW_ROOT),)
+$(info Refuse to run after `env/vars.sh` was invoked, to avoid accidentally using MSYS2 programs that are now in the PATH.)
+$(info Run this from a clean shell. After you're done, re-run `env/vars.sh` in the build shell to update the configuration.)
 $(error Aborted)
 endif
 

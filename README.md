@@ -53,6 +53,10 @@ In a configured build environment, you can do following:
 
     For CMake you should be using the `win-cmake` wrapper.
 
+  * Debug executables running under Wine.
+
+    Use the `win-gdb` wrapper. MSYS2 GDB doesn't interact well with a regular terminal, but runs nicely inside of `wineconsole`. This wrapper starts `wineconsole` automatically.
+
 ## Package manager usage
 
 You can install various libraries from the package manager.

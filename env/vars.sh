@@ -67,7 +67,10 @@ __dummy_func() {
 
             # This custom variable specifies the flags for our Clang wrapper in `env/wrappers`.
             # Note that the target is different from the value of `MINGW_TRIPLET`. That's slightly weird but that's what MSYS2 does, so...
-            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=x86_64-w64-windows-gnu --sysroot=$MINGW_ROOT -pthread"
+            # `--sysroot` tells Clang where to look for a GCC installation.
+            # `-pthread` tells is to link winpthread, since it doesn't happen automatically and some CMake scripts expect it.
+            # `-femulated-tls` is necessary when using libstdc++ atomics with Clang.
+            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=x86_64-w64-windows-gnu --sysroot=$MINGW_ROOT -pthread -femulated-tls"
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.

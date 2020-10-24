@@ -11,13 +11,13 @@ test -n "${BASH_SOURCE}" 2>/dev/null && config_site_me="${BASH_SOURCE[0]##*/}" |
 
 # Set the host triplet
 if test -z "$build_alias"; then
-  build_alias="${MINGW_TRIPLET-x86_64-w64-mingw32}" && \
+  build_alias="${MINGW_CHOST-x86_64-w64-mingw32}" && \
     ${as_echo-echo} "$config_site_me:${as_lineno-$LINENO}: default build_alias set to $build_alias" >&5
 fi
 
 # Set the default prefix to "root/mingw64"
 if ( test -z "$prefix" || test "x$prefix" = "xNONE" ) && \
    ( test -z "$exec_prefix" || test "x$exec_prefix" = "xNONE" ); then
-  prefix="${MINGW_ROOT}" && \
+  prefix="${MSYSTEM_PREFIX}" && \
     ${as_echo-echo} "$config_site_me:${as_lineno-$LINENO}: default prefix set to $prefix" >&5
 fi

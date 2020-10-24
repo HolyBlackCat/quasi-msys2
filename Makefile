@@ -87,9 +87,9 @@ $(info or specify the installation directory using `-C <dir>` flag.)
 $(error Aborted)
 endif
 
-# Check if the `MINGW_ROOT` environment variable exists. If it is, it means `env/vars.sh` was already invoked.
+# Check if the `MSYSTEM_PREFIX` environment variable exists. If it is, it means `env/vars.sh` was already invoked.
 # In this case we refuse to run, because the makefile may not work correctly with MSYS2 stuff in the PATH.
-ifneq ($(MINGW_ROOT),)
+ifneq ($(MSYSTEM_PREFIX),)
 $(info Refuse to run after `env/vars.sh` was invoked, to avoid accidentally using MSYS2 programs that are now in the PATH.)
 $(info Run this from a clean shell. After you're done, re-run `env/vars.sh` in the build shell to update the configuration.)
 $(error Aborted)

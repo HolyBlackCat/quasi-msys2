@@ -1,14 +1,16 @@
-## msys2-pacmake
+## quasi-msys2
 
 **What is this?**
 
 A small Linux-to-Windows cross-compilation environment.
 
+The goal is to mimic MSYS2, but on Linux (because it doesn't work under Wine).
+
 Features:
 
-* A tiny package manager, working with MSYS2 repositories.<br>
+* A tiny custom package manager, working with MSYS2 repositories.<br>
   From there you can install an up-to-date GCC and some common libraries.
-* A script that temporarily configures your kernel to transparently run `.exe` files with Wine, as if they were native executables. All kernel configuration will be undone on a reboot, or can be undone manually with the provided script.
+* A script that temporarily configures your kernel to transparently run `.exe` files with Wine, as if they were native executables. All kernel configuration will be undone on a reboot, or can be undone manually with the provided scripts.
 * CMake and Autotools will be tricked into thinking that they're doing a native Windows build!
 
 ## Prerequisites
@@ -17,7 +19,7 @@ Mandatory:
 
 * `make`, `wget`, `tar`, `zstd` (which `tar` uses to unpack `.tar.zst` archives)
 
-Recommended:
+Heavily recommended:
 
 * **Clang**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well, but a native Clang is much faster.
 
@@ -28,18 +30,14 @@ Recommended:
 * `make install _gcc _gdb` to install MSYS2 GCC and GDB.<br>
   Then you can run `make upgrade` from time to time to update the installed packages.
 
-* `source env/all_quiet.sh` to set up the build environment and configure the kernel.<br>
-  You need to run this in each shell you want to build from.
+* `env/shell.sh` to start a sub-shell configured for cross-compiling. Type `exit` to return to the original shell.
 
-  This script goes over all files in `env/*`, executing shell scripts with `source <file>` and makefiles with `make -f <file>`.
+  First time you start such shell after a reboot, you might be asked for a sudo password to configure the kernel to transparently run `.exe` files. If you don't trust random scripts with your password, continue reading for more details.
 
-  If you want to know more about what each file does, run them manually. They will print some information about what they're doing, and what parameters they have.
+In such a sub-shell, you can do following:
 
-  The kernel configuration is done by `env/binfmk.mk`, for that it will ask you for a `sudo` password. When run manually, this makefile will behave a bit more nicely, asking you for confirmation before executing each `sudo` command. If you don't trust the makefile, you can inspect it and run the commands manually, that shouldn't be hard.
-
-In a configured build environment, you can do following:
-
-  * Invoke `.exe` files transparently as if they were native executables, Wine will be used for that.
+  * Invoke `.exe` files transparently as if they were native executables, Wine will be used for that.<br>
+  <sub>(Actually this will work everywhere, until you reboot or manually tell the kernel to stop doing this, see below.)</sub>
 
   * Cross-compile to Windows using your native Clang. Use `win-clang` and `win-clang++` wrappers.
 
@@ -53,9 +51,21 @@ In a configured build environment, you can do following:
 
     For CMake you should be using the `win-cmake` wrapper.
 
+    `pkg-config` should work too, but it requires special
+
   * Debug executables running under Wine.
 
     Use the `win-gdb` wrapper. MSYS2 GDB doesn't interact well with a regular terminal, but runs nicely inside of `wineconsole`. This wrapper starts `wineconsole` automatically.
+
+## What exactly are we doing with the kernel
+
+When you run `env/shell.sh`, it creates a new Bash shell and does `source env/all_quiet.src` in it, which, in turn, goes over all other scripts in `env/` and runs them one by one (`*.mk` are run with `make -f ...`, `*.src` are run with `source ...`).
+
+The kernel configuration is done by one of those scripts, `env/binfmk.mk`. For that it needs to ask you for a `sudo` password.
+
+When run manually, this makefile will behave a more nicely, explaining the extra options it has and asking you for confirmation before executing each `sudo` command. If you don't trust the makefile, you can inspect it and run the commands manually, that shouldn't be hard.
+
+All it does it configuring [`binfmt_misc`](https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst) by adding a custom executable format (Windows `.exe`s), with `wine` as the handler.
 
 ## Package manager usage
 
@@ -101,6 +111,8 @@ Normally this is fixed automatically, but you can also do it manually:
 * `make apply-delta` - Fix the installation by applying the necessary the changes as displayed by `make delta`.
 
   This is done automatically by most high-level commands, such as `upgrade`, `install`, and `remove`.
+
+If you messed up your installation beyond repair, use `make reinstall-all` to purge everything and reinstall all packages.
 
 **Advanced usage**
 
@@ -183,15 +195,17 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
   * `fake_bin/` — Contains the wrappers generated by `fakebin.mk`
 
-  * `vars.sh` — Sets up environment variables, including `PATH`. Must be run as `source path/to/vars.sh`.
+  * `vars.src` — Sets up environment variables, including `PATH`. Must be run as `source path/to/vars.src`.
 
-  * `all_quiet.sh` — Runs all the files above, in quiet mode. Must be run as `source path/to/all_quiet.sh`.
+  * `all_quiet.src` — Runs all the files above, in quiet mode. Must be run as `source path/to/all_quiet.src`.
+
+  * `shell.sh` — Creates a new Bash shell and runs `source all_quiet.src` in it. Do `exit` to return to the original shell.
 
   * `wrappers/` — Wrappers for the native Clang and CMake that add the correct parameters for them.
 
   * `config/` — Contains configuration files for the build systems.
 
-    * `config.site` — This configures the Autotools. `vars.sh` stores a path to it in `CONFIG_SITE`, which Autotools read.
+    * `config.site` — This configures the Autotools. `vars.src` stores a path to it in `CONFIG_SITE`, which Autotools read.
 
     * `toolchain.cmake` — This configures CMake. The `win-cmake` wrapper passes this file to CMake.
 

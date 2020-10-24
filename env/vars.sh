@@ -9,7 +9,18 @@ __dummy_func() {
 
 
     # This custom variable points to the MinGW installation path, i.e. `root/mingw64`.
-    test -z "$MINGW_ROOT" && export "MINGW_ROOT=$installation_path/root/mingw64"
+    if test -z "$MINGW_ROOT"; then
+        # `MINGW_ROOT` not set, determine automatically.
+        if test "$(readlink /mingw64)" = "$installation_path/root/mingw64"; then
+            echo 'Found symlink `/mingw64` -> `'"$installation_path/root/mingw64"'`, will use it.'
+            export "MINGW_ROOT=/mingw64"
+        else
+            echo 'WARNING: Didn'"'"'t find symlink `/mingw64` -> `'"$installation_path/root/mingw64"'`.'
+            echo 'In some rare cases it can improve compatibility, consider creating it with:'
+            echo '    sudo ln -s "'"$installation_path/root/mingw64"'" /mingw64'
+            export "MINGW_ROOT=$installation_path/root/mingw64"
+        fi
+    fi
     echo "MINGW_ROOT = $MINGW_ROOT"
 
     # This custom variable specifies the target triplet.

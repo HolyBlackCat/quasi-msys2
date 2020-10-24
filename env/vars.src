@@ -19,12 +19,12 @@ __dummy_func() {
     # This MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
     if test -z "$MSYSTEM_PREFIX"; then
         # `MSYSTEM_PREFIX` not set, determine automatically.
-        if test "$(readlink /mingw64)" = "$installation_path/root/mingw64"; then
+        if test "$(readlink -m /mingw64)" = "$installation_path/root/mingw64"; then
             echo 'Found symlink `/mingw64` -> `'"$installation_path/root/mingw64"'`, will use it.'
             export "MSYSTEM_PREFIX=/mingw64"
         else
             echo 'WARNING: Didn'"'"'t find symlink `/mingw64` -> `'"$installation_path/root/mingw64"'`.'
-            echo 'Pkg-config (and possibly something else) will not work properly.'
+            echo 'It can improve compatibility in some rare cases.'
             echo 'Consider creating the symlink with:'
             echo '    sudo ln -s "'"$installation_path/root/mingw64"'" /mingw64'
             export "MSYSTEM_PREFIX=$installation_path/root/mingw64"
@@ -135,10 +135,9 @@ __dummy_func() {
     export "CONFIG_SITE=$installation_path/env/config/config.site"
     echo "CONFIG_SITE = $CONFIG_SITE"
 
-    # Pkg-config will look for packages in this directory. The value is taken from MSYS2.
-    # Note that we use the hardcoded path instead of `$MSYSTEM_PREFIX`, because the thing wouldn't work without the `/mingw64` anyway,
-    # because the `.pc` files have hardcoded paths in them.
-    export "PKG_CONFIG_PATH=/mingw64/lib/pkgconfig:/mingw64/share/pkgconfig"
+    # Pkg-config will look for packages in this directory.
+    # The value was taken from MSYS2, except `/mingw64` was replaced with `$MSYSTEM_PREFIX`.
+    export "PKG_CONFIG_PATH=$MSYSTEM_PREFIX/lib/pkgconfig:$MSYSTEM_PREFIX/share/pkgconfig"
     echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
 
     # Check if MSYS2 CMake is installed. Warn if it is, because it doesn't work properly under Wine.

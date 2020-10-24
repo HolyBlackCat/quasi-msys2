@@ -51,7 +51,7 @@ In such a sub-shell, you can do following:
 
     For CMake you should be using the `win-cmake` wrapper.
 
-    `pkg-config` should work too, but it requires special
+    `pkg-config` should also work out of the box.
 
   * Debug executables running under Wine.
 

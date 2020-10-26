@@ -37,10 +37,13 @@ __dummy_func() {
     echo "MINGW_CHOST = $MINGW_CHOST"
 
 
-    # Select a compiler.
-    if test -n "$CC" && test -n "$CXX"; then
+    if test "$MINGW_CC" || test "$MINGW_CXX"; then
+        # A custom compiler is specified, use it.
+        export "CC=$MINGW_CC"
+        export "CXX=$MINGW_CXX"
+    else
         # No custom compiler is specified, try to guess.
-        echo -e '\nGuessing a compiler... To override, set `CC` and `CXX` and restart.'
+        echo -e '\nGuessing a compiler... To override, set `MINGW_CC` and `MINGW_CXX` and restart.'
 
         # First, try the native Clang.
         echo "Trying native Clang..."

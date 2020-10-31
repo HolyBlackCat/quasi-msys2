@@ -57,6 +57,10 @@ In such a sub-shell, you can do following:
 
     Use the `win-gdb` wrapper. MSYS2 GDB doesn't interact well with a regular terminal, but runs nicely inside of `wineconsole`. This wrapper starts `wineconsole` automatically.
 
+  * Inspect `.dll` dependencies of executables.
+
+    Use the `win-ldd` wrapper. It processes the output of `ntldd.exe` (which needs to be installed with `make install _ntldd-git`), replacing windows paths paths with proper linux paths.
+
 ## What exactly are we doing with the kernel
 
 When you run `env/shell.sh`, it creates a new Bash shell and does `source env/all_quiet.src` in it, which, in turn, goes over all other scripts in `env/` and runs them one by one (`*.mk` are run with `make -f ...`, `*.src` are run with `source ...`).

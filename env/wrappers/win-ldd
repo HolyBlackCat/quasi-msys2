@@ -1,0 +1,12 @@
+# We pipe the output of `ntldd` through sed to replace any windows-style paths with linux-style ones.
+# Sed generates a sequence of bash commands, which are then piped to bash.
+# 1: To escape ' symbols, replace then with '"'"'.
+# 2: Wrap each line in `echo '...'`. This is why the previous line is necessary.
+# 3: Find lines that look like valid ldd output (`  X => Y (0x123)`). For those lines, replace a single `echo` with a sequence of `echo`s that
+#    prints everything verbatim except for Y, which is sent through `winepath -u` to convert to linux-style path, and then through `realpath` to resolve symlinks.
+# The resulting sequence of commands is piped to `bash`. Remove `| bash` to debug.
+wine ntldd.exe "$@" | tr -d '\r' | sed -r \
+    -e 's/'"'"'/'"'"'"'"'"'"'"'"'/g;' \
+    -e 's/^(.*)$/echo '"'"'\1'"'"'/g;' \
+    -e 's/^echo '"'"'(\s*.*? => )(.*)( \(0x[0-9a-fA-F]*\))'"'"'$/echo -n '"'"'\1'"'"'; realpath `winepath -u '"'"'\2'"'"'` | tr -d '"'"'\\n'"'"'; echo '"'"'\3'"'"'\n/g' \
+    | bash

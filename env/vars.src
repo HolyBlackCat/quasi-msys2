@@ -32,7 +32,7 @@ __dummy_func() {
             echo "$warn"'Didn'"'"'t find symlink `/mingw64` -> `'"$QUASI_MSYS2_ROOT/root/mingw64"'`.'
             echo 'It can improve compatibility in some rare cases.'
             echo 'Consider creating the symlink with following command, then restart the shell and re-run this script.'
-            echo '    sudo ln -s "'"$QUASI_MSYS2_ROOT/root/mingw64"'" /mingw64'
+            echo '    sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root/mingw64"'" /mingw64'
             export "MSYSTEM_PREFIX=$QUASI_MSYS2_ROOT/root/mingw64"
         fi
     fi

@@ -143,6 +143,14 @@ __dummy_func() {
     export "PKG_CONFIG_PATH=$MSYSTEM_PREFIX/lib/pkgconfig:$MSYSTEM_PREFIX/share/pkgconfig"
     echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
 
+    # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.
+    # MSYS2 also stores a second path in it, `/usr/share/aclocal` (separated by a `:`), but we probably shouldn't add it forcefully if it's not already there.
+    # Since one of the paths MSYS2 stores in it doesn't start with `/mingw64`, it seemed logical to me to append to this variable rather than overwriting it.
+    local new_aclocal_path="$(make -f "$installation_path/env/internal/AddToPath.mk" "var=ACLOCAL_PATH" "dirs=$MSYSTEM_PREFIX/share/aclocal")"
+    test -z "$new_aclocal_path" && return
+    export "ACLOCAL_PATH=$new_aclocal_path"
+    echo "ACLOCAL_PATH = $ACLOCAL_PATH"
+
     # Check if MSYS2 CMake is installed. Warn if it is, because it doesn't work properly under Wine.
     test -f "$MSYSTEM_PREFIX/bin/cmake.exe" && echo -e 'WARNING: MSYS2 CMake is installed. It won'"'"'t function properly,\nget rid of it and use the `win-cmake` wrapper that calls the native CMake.'
     # This variable is used by our wrapper in `env/wrappers`. We use an absolute path
@@ -156,7 +164,7 @@ __dummy_func() {
     echo ''
 
     # Update the PATH.
-    local new_path="$(make -f "$(dirname "$BASH_SOURCE")/internal/AddToPath.mk" "dirs=$installation_path/env/wrappers:$installation_path/env/fake_bin:$WINEPATH")"
+    local new_path="$(make -f "$installation_path/env/internal/AddToPath.mk" "dirs=$installation_path/env/wrappers:$installation_path/env/fake_bin:$WINEPATH")"
     test -z "$new_path" && return
     export "PATH=$new_path"
     echo "PATH = $PATH"

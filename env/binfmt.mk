@@ -40,7 +40,12 @@ override sudo_exec = \
 	$(call explain,Will run following command$(comma) press Enter to confirm or Ctrl+C to abort.)\
 	$(if $(QUIET),$(info Running `sudo $1`.),$(call confirm,$$ sudo $1))\
 	$(call safe_shell_exec,sudo $1 1>&2)\
-	$(info Success.)
+	$(info Success.)\
+	$(eval override at_least_one_sudo_run := y)
+# If `sudo_exec` was run at least one, this function makes sudo forget the password.
+override forget_sudo_passowrd = $(if $(at_least_one_sudo_run),$(info Running `sudo -k` to forget the sudo password.)$(call safe_shell_exec,sudo -k))
+# This variable is not null if we used `sudo_exec` at least once.
+override at_least_one_sudo_run :=
 
 # If not in quiet mode, calling this will make sudo ask you for the password next time you use it.
 override reset_sudo = $(if $(QUIET),,$(call safe_shell_exec,sudo -k))
@@ -94,6 +99,7 @@ enable:
 		$(info Executable format enabled? NO)\
 		$(call sudo_exec,bash -c 'echo 1 >/proc/sys/fs/binfmt_misc/DOSWin')\
 	)
+	$(call forget_sudo_passowrd)
 	@true
 
 # Unregister the single executable format.
@@ -109,6 +115,7 @@ unregister-format:
 	,\
 		$(info `binfmt_misc` is not mounted, nothing to do.)\
 	)
+	$(call forget_sudo_passowrd)
 	@true
 
 # Disable all the formats.
@@ -124,4 +131,5 @@ disable-binfmt_misc:
 	,\
 		$(info `binfmt_misc` is not mounted, nothing to do.)\
 	)
+	$(call forget_sudo_passowrd)
 	@true

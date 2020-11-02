@@ -25,13 +25,22 @@ KEEP_UNPROCESSED_DATABASE := 0
 
 
 # --- VERSION ---
-override version := 1.1.0
+override version := 1.2.0
 
 
 # --- GENERIC UTILITIES ---
 
 # Disable parallel builds.
 .NOTPARALLEL:
+
+
+# Display name of our executable, to give to the user.
+ifeq ($(MSYSTEM_PREFIX),)
+override self := make
+else
+# We're in a build shell, give user the name of the wrapper.
+override self := pacmake
+endif
 
 
 # Some constants.
@@ -82,16 +91,16 @@ override installation_directory_marker := msys2_pacmake_base_dir
 # This makes sure the working directory is correct, to avoid accidentally creating files outside of the installation directory.
 ifeq ($(wildcard ./$(installation_directory_marker)),)
 $(info Incorrect working directory.)
-$(info Invoke `make` directly from the installation directory,)
+$(info Invoke `$(self)` directly from the installation directory,)
 $(info or specify the installation directory using `-C <dir>` flag.)
 $(error Aborted)
 endif
 
-# Check if the `MSYSTEM_PREFIX` environment variable exists. If it is, it means `env/vars.sh` was already invoked.
+# Check if the `QUASI_MSYS2_ROOT` environment variable exists. If it is, it means `env/vars.sh` was already invoked.
 # In this case we refuse to run, because the makefile may not work correctly with MSYS2 stuff in the PATH.
-ifneq ($(MSYSTEM_PREFIX),)
-$(info Refuse to run after `env/vars.sh` was invoked, to avoid accidentally using MSYS2 programs that are now in the PATH.)
-$(info Run this from a clean shell. After you're done, re-run `env/vars.sh` in the build shell to update the configuration.)
+ifneq ($(QUASI_MSYS2_ROOT),)
+$(info Please use the `pacmake` wrapper instead.)
+$(info Refuse to run directly from `make` after `env/vars.sh` was invoked.)
 $(error Aborted)
 endif
 
@@ -559,7 +568,7 @@ override act = \
 	$(eval override _locat_target := $(if $(filter $1,$(word 1,$(MAKECMDGOALS))),,>>)$(strip $1))\
 	$(eval .PHONY: $(_locat_target))\
 	$(if $(display_help),\
-		$(info make $(strip $1)$(if $2, <$2>))\
+		$(info $(self) $(strip $1)$(if $2, <$2>))\
 		$(info $(space)$(space)$(subst $(lf),$(lf)$(space)$(space),$3))\
 		$(info )\
 	)\
@@ -641,14 +650,14 @@ $(call act, list-req \
 
 # Installs packages (without versions specified).
 $(call act, install \
-,packages,Install packages.$(lf)Equivalent to 'make request' followed by 'make apply-delta'.)
+,packages,Install packages.$(lf)Equivalent to '$(self) request' followed by '$(self) apply-delta'.)
 	$(call pkg_request_list_add,$p)
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 
 # Removes packages (without versions specified).
 $(call act, remove \
-,packages,Remove packages.$(lf)Equivalent to 'make undo-request' followed by 'make apply-delta'.)
+,packages,Remove packages.$(lf)Equivalent to '$(self) undo-request' followed by '$(self) apply-delta'.)
 	$(call pkg_request_list_remove,$p)
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
@@ -699,14 +708,14 @@ $(lf)Clean the cache.)
 # Adds packages (without versions) to the request list.
 $(call act, request \
 ,packages,Request packages to be installed.$(lf)The packages and their dependencies will be\
-$(lf)installed next time 'make apply-delta' is called.)
+$(lf)installed next time '$(self) apply-delta' is called.)
 	$(call pkg_request_list_add,$p)
 	@true
 
 # Removes packages (without versions) from the request list.
 $(call act, undo-request \
 ,packages,Request packages to not be installed.$(lf)The packages and any dependencies that are no longer needed\
-$(lf)will be removed next time 'make apply-delta' is called.)
+$(lf)will be removed next time '$(self) apply-delta' is called.)
 	$(call pkg_request_list_remove,$p)
 	@true
 
@@ -728,7 +737,7 @@ $(lf)`>` prefix means the package should be updated.)
 
 # Prints the current delta, in a simple form.
 $(call act, simple-delta \
-,,Similar to `make delta`$(comma) but only displays 'install' and 'remove' actions.\
+,,Similar to `$(self) delta`$(comma) but only displays 'install' and 'remove' actions.\
 $(lf)Other actions are represented in terms of those two.)
 	$(call pkg_pretty_print_delta,$(pkg_compute_delta))
 	@true
@@ -737,7 +746,7 @@ $(lf)Other actions are represented in terms of those two.)
 $(call act, apply-delta \
 ,,Installs all requested packages and their dependencies$(comma)\
 $(lf)or updates them to latest known versions.\
-$(lf)Use `make delta` to preview the changes before applying them.)
+$(lf)Use `$(self) delta` to preview the changes before applying them.)
 	$(call pkg_apply_delta,$(pkg_compute_delta))
 	@true
 
@@ -789,7 +798,7 @@ $(call act, list-broken \
 $(call act, purge-broken \
 ,,Destroys all broken packages.\
 $(lf)Normally you don't need to call this manually$(comma) as broken packages are\
-$(lf)reinstalled automatically by `make apply-delta` and other commands.)
+$(lf)reinstalled automatically by `$(self) apply-delta` and other commands.)
 	$(index_purge_broken)
 	@true
 

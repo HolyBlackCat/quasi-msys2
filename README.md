@@ -32,6 +32,8 @@ Heavily recommended:
 
 * `env/shell.sh` to start a sub-shell configured for cross-compiling. Type `exit` to return to the original shell.
 
+  Within such a shell, use `pacmake ...` instead of `make ...` to invoke the package manager.
+
   First time you start such shell after a reboot, you might be asked for a sudo password to configure the kernel to transparently run `.exe` files. If you don't trust random scripts with your password, continue reading for more details.
 
 In such a sub-shell, you can do following:
@@ -45,7 +47,7 @@ In such a sub-shell, you can do following:
 
     While using MSYS2 GCC makes some sense if you prefer GCC over Clang, using MSYS2 Clang is completely pointless, since a native Clang will do the same thing but faster.
 
-  * Cross-compile libraries using Autotools and CMake.
+  * Cross-compile stuff using Autotools and CMake.
 
     Autotools (aka `./configure && make`) should work out of the box.
 

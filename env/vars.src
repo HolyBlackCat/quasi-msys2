@@ -4,30 +4,36 @@
 # Make a dummy function to be able to have local variables.
 __dummy_func() {
     # Stop this script from running more than once.
-    if test "$MINGW_VARIABLES_SET"; then
+    if test "$QUASI_MSYS2_ROOT"; then
         echo -e "The environment variables are already set.\nRestart the shell and re-run this script to update them."
         return
     fi
-    export "MINGW_VARIABLES_SET=1"
 
-    # Helper variable pointing to the msys2_pacmake installation directory.
-    local installation_path="$(realpath "$(dirname "$BASH_SOURCE")"/..)"
+    # Local variable that stores a fancy warning prefix.
+    # We use `tput` instead of hardcoding the codes because it's supposedly more portable.
+    local warn="$(tput setaf 3)[$(tput setaf 1)WARNING$(tput setaf 3)]$(tput sgr0) "
+
+    # Helper variable pointing to our installation directory.
+    export QUASI_MSYS2_ROOT="$(realpath "$(dirname "$BASH_SOURCE")"/..)"
     # Make sure the resulting variable is not empty due to some error. If it is, abort.
-    test -z "$installation_path" && return
+    test -z "$QUASI_MSYS2_ROOT" && return
+    echo "Installation directory:"
+    echo "QUASI_MSYS2_ROOT = $QUASI_MSYS2_ROOT"
+    echo ''
 
 
     # This MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
     if test -z "$MSYSTEM_PREFIX"; then
         # `MSYSTEM_PREFIX` not set, determine automatically.
-        if test "$(readlink -m /mingw64)" = "$installation_path/root/mingw64"; then
-            echo 'Found symlink `/mingw64` -> `'"$installation_path/root/mingw64"'`, will use it.'
+        if test "$(readlink -m /mingw64)" = "$QUASI_MSYS2_ROOT/root/mingw64"; then
+            echo 'Found symlink `/mingw64` -> `'"$QUASI_MSYS2_ROOT/root/mingw64"'`, will use it.'
             export "MSYSTEM_PREFIX=/mingw64"
         else
-            echo 'WARNING: Didn'"'"'t find symlink `/mingw64` -> `'"$installation_path/root/mingw64"'`.'
+            echo "$warn"'Didn'"'"'t find symlink `/mingw64` -> `'"$QUASI_MSYS2_ROOT/root/mingw64"'`.'
             echo 'It can improve compatibility in some rare cases.'
-            echo 'Consider creating the symlink with:'
-            echo '    sudo ln -s "'"$installation_path/root/mingw64"'" /mingw64'
-            export "MSYSTEM_PREFIX=$installation_path/root/mingw64"
+            echo 'Consider creating the symlink with following command, then restart the shell and re-run this script.'
+            echo '    sudo ln -s "'"$QUASI_MSYS2_ROOT/root/mingw64"'" /mingw64'
+            export "MSYSTEM_PREFIX=$QUASI_MSYS2_ROOT/root/mingw64"
         fi
     fi
     echo "MSYSTEM_PREFIX = $MSYSTEM_PREFIX"
@@ -71,7 +77,7 @@ __dummy_func() {
 
             # Warn if MSYS2 GCC is not installed.
             if test ! -f "$MSYSTEM_PREFIX/bin/gcc.exe" || test ! -f "$MSYSTEM_PREFIX/bin/g++.exe"; then
-                echo "WARNING: Couldn't find the MSYS2 GCC. It has to be installed for the native Clang to be able to cross-compile."
+                echo "$warn""Couldn't find the MSYS2 GCC. It has to be installed for the native Clang to be able to cross-compile."
             fi
 
             # If MSYS2 Clang is installed, switch to absolute paths and warn.
@@ -132,10 +138,10 @@ __dummy_func() {
     # Wine will look for executables in this directory.
     export "WINEPATH=$MSYSTEM_PREFIX/bin"
     echo "WINEPATH = $WINEPATH"
-    which wine >/dev/null || echo "WARNING: Can't find Wine. If you want to run native executables, it has to be installed."
+    which wine >/dev/null || echo "$warn""Can't find Wine. If you want to run native executables, it has to be installed."
 
     # Autotools will read config from that file.
-    export "CONFIG_SITE=$installation_path/env/config/config.site"
+    export "CONFIG_SITE=$QUASI_MSYS2_ROOT/env/config/config.site"
     echo "CONFIG_SITE = $CONFIG_SITE"
 
     # Pkg-config will look for packages in this directory.
@@ -146,28 +152,30 @@ __dummy_func() {
     # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.
     # MSYS2 also stores a second path in it, `/usr/share/aclocal` (separated by a `:`), but we probably shouldn't add it forcefully if it's not already there.
     # Since one of the paths MSYS2 stores in it doesn't start with `/mingw64`, it seemed logical to me to append to this variable rather than overwriting it.
-    local new_aclocal_path="$(make -f "$installation_path/env/internal/AddToPath.mk" "var=ACLOCAL_PATH" "dirs=$MSYSTEM_PREFIX/share/aclocal")"
+    local new_aclocal_path="$(make -f "$QUASI_MSYS2_ROOT/env/internal/AddToPath.mk" "var=ACLOCAL_PATH" "dirs=$MSYSTEM_PREFIX/share/aclocal")"
     test -z "$new_aclocal_path" && return
     export "ACLOCAL_PATH=$new_aclocal_path"
     echo "ACLOCAL_PATH = $ACLOCAL_PATH"
 
     # Check if MSYS2 CMake is installed. Warn if it is, because it doesn't work properly under Wine.
-    test -f "$MSYSTEM_PREFIX/bin/cmake.exe" && echo -e 'WARNING: MSYS2 CMake is installed. It won'"'"'t function properly,\nget rid of it and use the `win-cmake` wrapper that calls the native CMake.'
+    test -f "$MSYSTEM_PREFIX/bin/cmake.exe" && echo -e "$warn"'MSYS2 CMake is installed. It won'"'"'t function properly,\nget rid of it and use the `win-cmake` wrapper that calls the native CMake.'
     # This variable is used by our wrapper in `env/wrappers`. We use an absolute path
     # to avoid collisions with MSYS2 CMake if it's installed for some reason.
     export "WIN_NATIVE_CMAKE=$(which cmake)"
     echo "WIN_NATIVE_CMAKE = $WIN_NATIVE_CMAKE"
     # This variable is also used by our wrapper in `env/wrappers`, and contains the extra CMake flags.
-    export "WIN_CMAKE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=$installation_path/env/config/toolchain.cmake -DCMAKE_INSTALL_PREFIX=$MSYSTEM_PREFIX"
+    export "WIN_CMAKE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=$QUASI_MSYS2_ROOT/env/config/toolchain.cmake -DCMAKE_INSTALL_PREFIX=$MSYSTEM_PREFIX"
     echo "WIN_CMAKE_FLAGS = $WIN_CMAKE_FLAGS"
 
     echo ''
 
     # Update the PATH.
-    local new_path="$(make -f "$installation_path/env/internal/AddToPath.mk" "dirs=$installation_path/env/wrappers:$installation_path/env/fake_bin:$WINEPATH")"
+    export "WIN_ORIGINAL_PATH=$PATH"
+    local new_path="$(make -f "$QUASI_MSYS2_ROOT/env/internal/AddToPath.mk" "dirs=$QUASI_MSYS2_ROOT/env/wrappers:$QUASI_MSYS2_ROOT/env/fake_bin:$WINEPATH")"
     test -z "$new_path" && return
     export "PATH=$new_path"
     echo "PATH = $PATH"
+    echo 'Backed up original path to `WIN_ORIGINAL_PATH`.'
 
     # We don't use the following variables, but sill define them for some extra compatibility with MSYS2.
     # The list of variables was obtained by running `printenv` on MSYS2 and manually sorting through the list.

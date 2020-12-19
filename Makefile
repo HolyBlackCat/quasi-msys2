@@ -867,7 +867,7 @@ $(call act, cache-remove-unused \
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, cache-installed-only \
-,,Make sure the cache contains all installed packages, and nothign else.)
+,,Make sure the cache contains all installed packages, and nothing else.)
 	$(call safe_shell_exec, $(MAKE) 1>&2 cache-add-missing)
 	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
 	@true

@@ -515,15 +515,19 @@ override pkg_compute_delta = $(strip \
 
 # Prints a delta.
 # $1 is the delta data.
+# $2 (optional) is a message that will be printed before the delta if the delta is not empty.
 # Packages that should be removed are prefixed with `- `, and packages that shoudl be installed are prefixed with `+ `.
 override pkg_pretty_print_delta = \
+	$(if $(and $1,$2),$(info $2))\
 	$(foreach x,$(patsubst <%,%,$(filter <%,$1)),$(info - $x))\
 	$(foreach x,$(patsubst >%,%,$(filter >%,$1)),$(info + $x))
 
 # Prints a delta.
 # $1 is the delta data.
+# $2 (optional) is a message that will be printed before the delta if the delta is not empty.
 # Same as pkg_pretty_print_delta`, but package updates are printed separately and prefixed with `> `.
 override pkg_pretty_print_delta_fancy = \
+	$(if $(and $1,$2),$(info $2))\
 	$(eval override _local_delta := $1)\
 	$(eval override _local_upd :=)\
 	$(foreach x,$(_local_delta),$(if $(filter <%,$x),\
@@ -610,7 +614,7 @@ $(call act, update \
 ,,Download a new database. The existing database will be backed up.)
 	$(call safe_shell_exec,$(MAKE) 1>&2 -B '$(database_processed_file)')
 	$(database_query_empty)
-	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
+	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 
 # Accepts a list of packages. Returns the same list, but with package versions specified.

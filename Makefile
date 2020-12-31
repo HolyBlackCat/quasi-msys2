@@ -23,6 +23,9 @@ CACHE_DIR := cache
 # Useful for debugging the database parser.
 KEEP_UNPROCESSED_DATABASE := 0
 
+# The contents of this variable are called as a shell command after any changes to the packages are made.
+CALL_ON_PKG_CHANGE :=
+
 
 # --- VERSION ---
 override version := 1.2.0
@@ -426,11 +429,14 @@ override index_uninstall_single_broken_pkg = \
 # Removes all empty directories in the $(ROOT_DIR).
 override index_clean_empty_dirs = $(call safe_shell_exec,find $(ROOT_DIR) -mindepth 1 -type d -empty -delete)
 
+
+# --- INDEX INTERFACE ---
+
 # Removes all packages that have the $(index_broken_prefix) prefix.
 override index_purge_broken = \
 	$(foreach x,$(wildcard $(index_dir)/$(index_broken_prefix)*),$(call index_uninstall_single_broken_pkg,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$x)))\
-	$(index_clean_empty_dirs)
-
+	$(index_clean_empty_dirs)\
+	$(if $(CALL_ON_PKG_CHANGE),$(call safe_shell_exec,$(CALL_ON_PKG_CHANGE)))
 
 # Installs a list of packages $1 (which has to include versions), without considering dependencies.
 # Make sure the packages are not already installed.
@@ -446,7 +452,8 @@ override index_force_install = \
 		$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(call cache_find_pkg_archive,$p)' --exclude='.*')\
 		$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$p' '$(index_dir)/$p')\
 		$(call print_log,Installed '$p')\
-	)
+	)\
+	$(if $(CALL_ON_PKG_CHANGE),$(call safe_shell_exec,$(CALL_ON_PKG_CHANGE)))
 
 # Removes a list of packages $1 (which has to include versions), without considering dependencies.
 override index_force_uninstall = \
@@ -455,10 +462,8 @@ override index_force_uninstall = \
 		$(if $(wildcard $(index_dir)/$x),$(call safe_shell_exec,mv -f '$(index_dir)/$x' '$(index_dir)/$(index_broken_prefix)$x'))\
 		$(call index_uninstall_single_broken_pkg,$x)\
 	)\
-	$(index_clean_empty_dirs)
-
-
-# --- INDEX INTERFACE ---
+	$(index_clean_empty_dirs)\
+	$(if $(CALL_ON_PKG_CHANGE),$(call safe_shell_exec,$(CALL_ON_PKG_CHANGE)))
 
 # Expands to a list of all installed packages, with versions.
 override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$(wildcard $(index_pattern)))
@@ -676,16 +681,16 @@ $(call act, remove-all-packages \
 ,,Remove all packages.)
 	$(info Deleting files...)
 	$(call pkg_request_list_reset)
-	$(call safe_shell_exec,rm -rf $(ROOT_DIR)/*)
-	$(call safe_shell_exec,rm -rf $(index_dir)/*)
+	$(call safe_shell_exec,rm -rf '$(ROOT_DIR)'/*)
+	$(call safe_shell_exec,rm -rf '$(index_dir)'/*)
 	@true
 
 # Removes all packages.
 $(call act, reinstall-all \
 ,,Reinstall all packages.)
 	$(info Deleting files...)
-	$(call safe_shell_exec,rm -rf $(ROOT_DIR)/*)
-	$(call safe_shell_exec,rm -rf $(index_dir)/*)
+	$(call safe_shell_exec,rm -rf '$(ROOT_DIR)/'*)
+	$(call safe_shell_exec,rm -rf '$(index_dir)'/*)
 	$(call pkg_apply_delta,$(pkg_compute_delta))
 	@true
 

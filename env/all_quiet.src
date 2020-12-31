@@ -14,6 +14,8 @@ __dummy_func() {
     echo -e '\n--- fakebin.mk'
     make -f "$env_path/fakebin.mk" QUIET=1 || return 1
 
+    # This should probably go after `fakebin.mk`, because whether or not we install
+    # package manager hooks (that call `fakebin.mk`) depends on whether we have the `fake_bin` directory.
     echo -e '\n--- vars.sh'
     source "$env_path/vars.src" || return 1
 }

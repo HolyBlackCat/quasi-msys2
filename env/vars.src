@@ -136,6 +136,22 @@ __dummy_func() {
     echo ''
 
 
+    # A variable read by `Makefile` (the package manager), containing the hook that should be called after installing/uninstalling packages.
+    if test -z "$QUASI_MSYS2_PKG_HOOK"; then
+        if test -d "$QUASI_MSYS2_ROOT/env/fake_bin"; then
+            echo '`fakebin.mk` is in use, installing a package manager hook for it:'
+            export "QUASI_MSYS2_PKG_HOOK=make -f '$QUASI_MSYS2_ROOT/env/fakebin.mk' QUIET=1"
+        else
+            echo '`fakebin.mk` is not in use, it doesn'"'"'t need a package manager hook.'
+            echo ''
+        fi
+    fi
+    if test "$QUASI_MSYS2_PKG_HOOK"; then
+        echo "QUASI_MSYS2_PKG_HOOK = $QUASI_MSYS2_PKG_HOOK"
+        echo ''
+    fi
+
+
     # Wine will look for executables in this directory.
     export "WINEPATH=$MSYSTEM_PREFIX/bin"
     echo "WINEPATH = $WINEPATH"

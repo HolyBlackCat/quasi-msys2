@@ -43,6 +43,12 @@ override self := pacmake
 endif
 
 
+# All used `make` flags that can be spelled as single letters, without any `-`s.
+override makeflags_single_letters := $(filter-out -%,$(word 1,$(MAKEFLAGS)))
+# Non-empty if we're being called from an autocompletion context.
+override called_from_autocompletion := $(and $(findstring p,$(makeflags_single_letters)),$(findstring q,$(makeflags_single_letters)))
+
+
 # Some constants.
 override space := $(strip) $(strip)
 override comma := ,
@@ -568,8 +574,9 @@ override pkg_print_then_apply_delta = \
 # $1 is name.
 # $2 is a user-facing parameter name, or empty if it accepts no parameters.
 # #3 is human-readable descrption
+# Note that the target name is uglified (unless it's the target that's being called AND unless our makefile is being examined for autocompletion).
 override act = \
-	$(eval override _locat_target := $(if $(filter $1,$(word 1,$(MAKECMDGOALS))),,>>)$(strip $1))\
+	$(eval override _locat_target := $(if $(or $(called_from_autocompletion),$(filter $1,$(word 1,$(MAKECMDGOALS)))),,>>)$(strip $1))\
 	$(eval .PHONY: $(_locat_target))\
 	$(if $(display_help),\
 		$(info $(self) $(strip $1)$(if $2, <$2>))\

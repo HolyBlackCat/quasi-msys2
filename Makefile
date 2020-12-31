@@ -224,33 +224,33 @@ $(database_processed_file): $(database_tmp_file)
 		$(call safe_shell_exec,tar -C '$(database_tmp_dir)' -xzf '$(database_tmp_file)')\
 		$(if $(wildcard $@),$(call safe_shell_exec,mv -f '$@' '$(database_processed_file_bak)'))\
 		$(call print_log,Processing package database...)\
-    	$(eval override _local_db_files := $(sort $(wildcard $(desc_pattern))))\
-    	$(eval override _local_pkg_list :=)\
-    	$(eval override _local_dupe_check_list :=)\
-    	$(foreach x,$(_local_db_files),\
-    		$(eval override _local_name_ver := $(call desc_file_to_name_ver,$x))\
-    		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
-    		$(call code_pkg_version_var,$@,$(_local_name_ver))\
-    		$(eval override _local_file := $(call safe_shell,cat $x))\
-    		$(eval override _local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
-    		$(eval override _local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
-    		$(eval override _local_lhs := $(_local_name) $(_local_aliases))\
-    		$(eval override _local_pkg_list += $(_local_name))\
-    		$(foreach y,$(_local_lhs),\
-    			$(eval override _local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
-    			$(if $(_local_conflict),\
-    				$(call print_log,Warning: '$y' is provided by both)\
-    				$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' and)\
-    				$(call print_log,  '$(_local_name_ver)')\
-    				$(call print_log,  The second option will be ignored by default.)\
-    				$(eval override _local_lhs := $(filter-out $y,$(_local_lhs)))\
-    			)\
-    		)\
-    		$(eval override _local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
-    		$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
-    		$(call safe_shell_exec,echo >>$@)\
-    	)\
-    	$(call safe_shell_exec,echo >>$@ 'override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list))')\
+		$(eval override _local_db_files := $(sort $(wildcard $(desc_pattern))))\
+		$(eval override _local_pkg_list :=)\
+		$(eval override _local_dupe_check_list :=)\
+		$(foreach x,$(_local_db_files),\
+			$(eval override _local_name_ver := $(call desc_file_to_name_ver,$x))\
+			$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
+			$(call code_pkg_version_var,$@,$(_local_name_ver))\
+			$(eval override _local_file := $(call safe_shell,cat $x))\
+			$(eval override _local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
+			$(eval override _local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
+			$(eval override _local_lhs := $(_local_name) $(_local_aliases))\
+			$(eval override _local_pkg_list += $(_local_name))\
+			$(foreach y,$(_local_lhs),\
+				$(eval override _local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
+				$(if $(_local_conflict),\
+					$(call print_log,Warning: '$y' is provided by both)\
+					$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' and)\
+					$(call print_log,  '$(_local_name_ver)')\
+					$(call print_log,  The second option will be ignored by default.)\
+					$(eval override _local_lhs := $(filter-out $y,$(_local_lhs)))\
+				)\
+			)\
+			$(eval override _local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
+			$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
+			$(call safe_shell_exec,echo >>$@)\
+		)\
+		$(call safe_shell_exec,echo >>$@ 'override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list))')\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
 	$(call safe_shell_exec,mv -f '$(database_tmp_file)' '$(database_tmp_file_original)')
@@ -420,7 +420,7 @@ override index_stop_if_single_pkg_not_installed = \
 # $1 is a package name, with version. $(index_broken_prefix) is assumed and shouldn't be specified.
 override index_uninstall_single_broken_pkg = \
 	$(foreach x,$(call index_list_pkg_files,$(index_broken_prefix)$1),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$x)'))\
-    	$(call safe_shell_exec,rm -f '$(index_dir)/$(index_broken_prefix)$1')\
+		$(call safe_shell_exec,rm -f '$(index_dir)/$(index_broken_prefix)$1')\
 		$(call print_log,Removed '$1')
 
 # Removes all empty directories in the $(ROOT_DIR).

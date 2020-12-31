@@ -69,7 +69,7 @@ When you run `env/shell.sh`, it creates a new Bash shell and does `source env/al
 
 The kernel configuration is done by one of those scripts, `env/binfmk.mk`. For that it needs to ask you for a `sudo` password.
 
-When run manually, this makefile will behave a more nicely, explaining the extra options it has and asking you for confirmation before executing each `sudo` command. If you don't trust the makefile, you can inspect it and run the commands manually, that shouldn't be hard.
+When run manually, this makefile will behave a bit more nicely, explaining the extra options it has and asking you for confirmation before executing each `sudo` command. If you don't trust the makefile, you can inspect it and run the commands manually, that shouldn't be hard.
 
 All it does it configuring [`binfmt_misc`](https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst) by adding a custom executable format (Windows `.exe`s), with `wine` as the handler.
 

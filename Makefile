@@ -186,21 +186,21 @@ override extract_section = $(subst <, ,$(sort $(word 1,$(subst %, ,$(word 2,$(su
 # Prints to a file $1 a variable that contains the version of the package $2.
 # $1 is a destination file.
 # $2 is a package name, with version.
-override code_pkg_version_var = $(call safe_shell_exec,echo >>'$1' 'override VERSION_OF_$(call strip_ver,$2) := $(subst $(call strip_ver,$2)-,,$2)')
+override code_pkg_version_var = $(file >>$1,override VERSION_OF_$(call strip_ver,$2) := $(subst $(call strip_ver,$2)-,,$2))
 
 # Prints to a file $1 a variable that contains the dependencies of the package $1 that have a version specified.
 # $1 is a destination file.
 # $2 is a package name, with version.
 # $3 is a list of dependencies, from a package descritpion file (extracted with `extract_section`).
-#   override code_pkg_deps_versions_var = $(call safe_shell_exec,echo >>'$1' 'override DEP_VERS_OF_$(call strip_ver,$2) := $(sort $(foreach x,$3,$(if $(findstring =,$x),$x)))')
+#   override code_pkg_deps_versions_var = $(file >>$1,override DEP_VERS_OF_$(call strip_ver,$2) := $(sort $(foreach x,$3,$(if $(findstring =,$x),$x))))
 
 # Prints to a file $1 a make target for a list of packages $2, that depend on packages $3.
 # $1 is a destination file.
 # Both $1 and $2 shouldn't contain versions, but $2 can contain version conditions, such as `=1.2` or `>=1.2`.
 # The first name in $2 is considered to be the actual name of the package.
 override code_pkg_target = \
-	$(call safe_shell_exec,echo >>'$1' '.PHONY: $(addprefix PKG@@,$(sort $2))')\
-	$(call safe_shell_exec,echo >>'$1' '$(addprefix PKG@@,$(sort $2)): $(addprefix PKG@@,$(sort $(call strip_ver_cond,$3))) ; @echo '"'"'PKG@@$(word 1,$2)'"'"'')
+	$(file >>$1,.PHONY: $(addprefix PKG@@,$(sort $2)))\
+	$(file >>$1,$(addprefix PKG@@,$(sort $2)): $(addprefix PKG@@,$(sort $(call strip_ver_cond,$3))) ; @echo 'PKG@@$(word 1,$2)')
 
 
 # We don't use `.INTERMEDIATE`, since the recipe for `$(database_processed_file)` moves this file rather than deleting it.
@@ -248,9 +248,9 @@ $(database_processed_file): $(database_tmp_file)
 			)\
 			$(eval override _local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
 			$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
-			$(call safe_shell_exec,echo >>$@)\
+			$(file >>$@,)\
 		)\
-		$(call safe_shell_exec,echo >>$@ 'override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list))')\
+		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
 	$(call safe_shell_exec,mv -f '$(database_tmp_file)' '$(database_tmp_file_original)')
@@ -420,8 +420,8 @@ override index_stop_if_single_pkg_not_installed = \
 # $1 is a package name, with version. $(index_broken_prefix) is assumed and shouldn't be specified.
 override index_uninstall_single_broken_pkg = \
 	$(foreach x,$(call index_list_pkg_files,$(index_broken_prefix)$1),$(call safe_shell_exec,rm -f '$(ROOT_DIR)/$(subst <, ,$x)'))\
-		$(call safe_shell_exec,rm -f '$(index_dir)/$(index_broken_prefix)$1')\
-		$(call print_log,Removed '$1')
+	$(call safe_shell_exec,rm -f '$(index_dir)/$(index_broken_prefix)$1')\
+	$(call print_log,Removed '$1')
 
 # Removes all empty directories in the $(ROOT_DIR).
 override index_clean_empty_dirs = $(call safe_shell_exec,find $(ROOT_DIR) -mindepth 1 -type d -empty -delete)
@@ -432,23 +432,21 @@ override index_purge_broken = \
 	$(index_clean_empty_dirs)
 
 
-# $1 is a single package, with version.
-# It's installed, without checking dependencies.
-# Make sure it's not already installed!
-# It's downloaded, unless it's already cached.
-override index_force_install_single_pkg = \
-	$(call index_stop_if_single_pkg_installed,$1)\
-	$(call cache_want_packages,$1)\
-	$(eval override _local_files := $(call cache_list_pkg_files,$1))\
-	$(foreach x,$(_local_files),$(if $(wildcard $(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$1': file `$(subst <, ,$x)` already exists)))\
-	$(foreach x,$(_local_files),$(call safe_shell_exec,echo >>'$(index_dir)/$(index_broken_prefix)$1' '$x'))\
-	$(call print_log,Extracting '$1'...)\
-	$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(call cache_find_pkg_archive,$1)' --exclude='.*')\
-	$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$1' '$(index_dir)/$1')\
-	$(call print_log,Installed '$1')
-
 # Installs a list of packages $1 (which has to include versions), without considering dependencies.
-override index_force_install = $(foreach x,$1,$(call index_force_install_single_pkg,$x))
+# Make sure the packages are not already installed.
+# They are downloaded if they're not already cached.
+override index_force_install = \
+	$(foreach p,$1,\
+		$(call index_stop_if_single_pkg_installed,$p)\
+		$(call cache_want_packages,$p)\
+		$(eval override _local_files := $(call cache_list_pkg_files,$p))\
+		$(foreach x,$(_local_files),$(if $(wildcard $(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
+		$(foreach x,$(_local_files),$(file >>$(index_dir)/$(index_broken_prefix)$p,$x))\
+		$(call print_log,Extracting '$p'...)\
+		$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(call cache_find_pkg_archive,$p)' --exclude='.*')\
+		$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$p' '$(index_dir)/$p')\
+		$(call print_log,Installed '$p')\
+	)
 
 # Removes a list of packages $1 (which has to include versions), without considering dependencies.
 override index_force_uninstall = \
@@ -467,7 +465,7 @@ override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$
 
 # Returns a list of files that belong to installed packages listed in $1.
 # $1 has to include package versions.
-# Spaces in the resulting list are separated with `<`.
+# Spaces in filenames in the resulting list are replaced with `<`.
 override index_list_pkg_files = $(sort $(foreach x,$1,$(if $(wildcard $(index_dir)/$x),,$(error Package '$x' is not installed))$(call safe_shell,cat '$(index_dir)/$x')))
 
 

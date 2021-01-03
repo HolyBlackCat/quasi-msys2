@@ -77,7 +77,11 @@ endif
 # Same as `safe_shell`, but discards the output and expands to nothing.
 override safe_shell_exec = $(call,$(call safe_shell,$1))
 
-# Same as `$(wildcard ...)`, but without the dumb caching issues and with more sanity checks.
+# Expands to non-empty string if the file `$1` exists. Can handle spaces in file names.
+# Doesn't have the lame caching issues of the built-in `wildcard`.
+override file_exists = $(filter 0,$(call shell_status,test -e '$1'))
+
+# Same as the built-in `wildcard`, but without the dumb caching issues and with more sanity checks.
 # Make tends to cache the results of `wildcard`, and doesn't invalidate them when it should.
 override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,$(call shell_status,test -e '$x')),$x))
 
@@ -101,7 +105,7 @@ override installation_directory_marker := msys2_pacmake_base_dir
 
 # Check if the `$(installation_directory_marker)` file exists in the current directory, otherwise stop.
 # This makes sure the working directory is correct, to avoid accidentally creating files outside of the installation directory.
-ifeq ($(wildcard ./$(installation_directory_marker)),)
+ifeq ($(call file_exists,./$(installation_directory_marker)),)
 $(info Incorrect working directory.)
 $(info Invoke `$(self)` directly from the installation directory,)
 $(info or specify the installation directory using `-C <dir>` flag.)
@@ -219,7 +223,7 @@ $(database_tmp_file):
 
 $(database_processed_file): $(database_tmp_file)
 	$(call var,_local_database_not_changed := $(strip \
-		$(if $(wildcard $@),$(call,$(shell cmp -s '$(database_tmp_file)' '$(database_tmp_file_original)'))$(filter 0,$(.SHELLSTATUS)))\
+		$(if $(call file_exists,$@),$(call,$(shell cmp -s '$(database_tmp_file)' '$(database_tmp_file_original)'))$(filter 0,$(.SHELLSTATUS)))\
 	))\
 	$(if $(_local_database_not_changed),\
 		$(call print_log,The database has not changed.)\
@@ -228,9 +232,9 @@ $(database_processed_file): $(database_tmp_file)
 		$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')\
 		$(call safe_shell_exec,mkdir -p '$(database_tmp_dir)')\
 		$(call safe_shell_exec,tar -C '$(database_tmp_dir)' -xzf '$(database_tmp_file)')\
-		$(if $(wildcard $@),$(call safe_shell_exec,mv -f '$@' '$(database_processed_file_bak)'))\
+		$(if $(call file_exists,$@),$(call safe_shell_exec,mv -f '$@' '$(database_processed_file_bak)'))\
 		$(call print_log,Processing package database...)\
-		$(call var,_local_db_files := $(sort $(wildcard $(desc_pattern))))\
+		$(call var,_local_db_files := $(sort $(call safe_wildcard,$(desc_pattern))))\
 		$(call var,_local_pkg_list :=)\
 		$(call var,_local_dupe_check_list :=)\
 		$(foreach x,$(_local_db_files),\
@@ -333,11 +337,11 @@ override database_query_full_name = $(join $1,$(addprefix -,$(call database_quer
 
 # --- CACHE INTERNALS ---
 
-ifeq ($(wildcard $(CACHE_DIR)),)
+ifeq ($(call file_exists,$(CACHE_DIR)),)
 $(call safe_shell_exec,mkdir -p '$(CACHE_DIR)')
 endif
 
-ifeq ($(wildcard $(ROOT_DIR)),)
+ifeq ($(call file_exists,$(ROOT_DIR)),)
 $(call safe_shell_exec,mkdir -p '$(ROOT_DIR)')
 endif
 
@@ -347,7 +351,7 @@ override cache_unfinished_prefix = ---
 # $1 is the url, relative to the repo url. If it's a space-separated list of urls, they are tried in order until one works.
 # If the file is not cached, it's downloaded.
 override cache_download_file_if_missing = \
-	$(if $(wildcard $(foreach x,$1,$(CACHE_DIR)/$(notdir $x))),,\
+	$(if $(strip $(foreach x,$1,$(call file_exists,$(CACHE_DIR)/$(notdir $x)))),,\
 		$(call var,_local_continue := y)\
 		$(call var,_local_first := y)\
 		$(foreach x,$1,$(if $(_local_continue),\
@@ -362,7 +366,7 @@ override cache_download_file_if_missing = \
 	)
 
 # Deletes unfinished downloads.
-override cache_purge_unfinished = $(foreach x,$(wildcard $(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f '$x'))
+override cache_purge_unfinished = $(foreach x,$(call safe_wildcard,$(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f '$x'))
 
 # --- CACHE INTERFACE ---
 
@@ -387,7 +391,7 @@ override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o
 
 # Lists current packages sitting in the cache.
 override cache_list_current = \
-	$(call var,_local_files := $(wildcard $(CACHE_DIR)/*))\
+	$(call var,_local_files := $(call safe_wildcard,$(CACHE_DIR)/*))\
 	$(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),\
 		$(patsubst $(CACHE_DIR)/%$x,%,$(filter $(CACHE_DIR)/%$x,$(_local_files)))\
 	)
@@ -404,7 +408,7 @@ override cache_list_unused = $(filter-out $(index_list_all_installed),$(cache_li
 override index_dir := index
 override index_pattern := $(index_dir)/*
 
-ifeq ($(wildcard $(index_dir)),)
+ifeq ($(call file_exists,$(index_dir)),)
 $(call safe_shell_exec,mkdir -p '$(index_dir)')
 endif
 
@@ -414,13 +418,13 @@ override index_broken_prefix := --broken--
 # Causes an error if the package $1 is already installed, or is broken.
 # $1 has to include the version.
 override index_stop_if_single_pkg_installed = \
-	$(if $(wildcard $(index_dir)/$1),$(error Package '$1' is already installed))\
-	$(if $(wildcard $(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken))
+	$(if $(call file_exists,$(index_dir)/$1),$(error Package '$1' is already installed))\
+	$(if $(call file_exists,$(index_dir)/$(index_broken_prefix)$1),$(error Installed package '$1' is broken))
 
 # Causes an error if the package $1 is not installed (broken counts as installed).
 # $1 has to include the version.
 override index_stop_if_single_pkg_not_installed = \
-	$(if $(strip $(wildcard $(index_dir)/$1)$(wildcard $(index_dir)/$(index_broken_prefix)$1)),,$(error Package '$1' is not installed))\
+	$(if $(strip $(call file_exists,$(index_dir)/$1)$(call file_exists,$(index_dir)/$(index_broken_prefix)$1)),,$(error Package '$1' is not installed))\
 
 # Removes a single broken package.
 # $1 is a package name, with version. $(index_broken_prefix) is assumed and shouldn't be specified.
@@ -437,7 +441,7 @@ override index_clean_empty_dirs = $(call safe_shell_exec,find $(ROOT_DIR) -minde
 
 # Removes all packages that have the $(index_broken_prefix) prefix.
 override index_purge_broken = \
-	$(foreach x,$(wildcard $(index_dir)/$(index_broken_prefix)*),$(call index_uninstall_single_broken_pkg,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$x)))\
+	$(foreach x,$(call safe_wildcard,$(index_dir)/$(index_broken_prefix)*),$(call index_uninstall_single_broken_pkg,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$x)))\
 	$(index_clean_empty_dirs)\
 	$(if $(CALL_ON_PKG_CHANGE),$(call safe_shell_exec,$(CALL_ON_PKG_CHANGE)))
 
@@ -449,7 +453,7 @@ override index_force_install = \
 		$(call index_stop_if_single_pkg_installed,$p)\
 		$(call cache_want_packages,$p)\
 		$(call var,_local_files := $(call cache_list_pkg_files,$p))\
-		$(foreach x,$(_local_files),$(if $(wildcard $(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
+		$(foreach x,$(_local_files),$(if $(call file_exists,$(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
 		$(foreach x,$(_local_files),$(file >>$(index_dir)/$(index_broken_prefix)$p,$x))\
 		$(call print_log,Extracting '$p'...)\
 		$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(call cache_find_pkg_archive,$p)' --exclude='.*')\
@@ -462,19 +466,19 @@ override index_force_install = \
 override index_force_uninstall = \
 	$(foreach x,$(sort $(patsubst $(index_broken_prefix)%,%,$1)),\
 		$(call index_stop_if_single_pkg_not_installed,$x)\
-		$(if $(wildcard $(index_dir)/$x),$(call safe_shell_exec,mv -f '$(index_dir)/$x' '$(index_dir)/$(index_broken_prefix)$x'))\
+		$(if $(call file_exists,$(index_dir)/$x),$(call safe_shell_exec,mv -f '$(index_dir)/$x' '$(index_dir)/$(index_broken_prefix)$x'))\
 		$(call index_uninstall_single_broken_pkg,$x)\
 	)\
 	$(index_clean_empty_dirs)\
 	$(if $(CALL_ON_PKG_CHANGE),$(call safe_shell_exec,$(CALL_ON_PKG_CHANGE)))
 
 # Expands to a list of all installed packages, with versions.
-override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$(wildcard $(index_pattern)))
+override index_list_all_installed = $(patsubst $(subst *,%,$(index_pattern)),%,$(call safe_wildcard,$(index_pattern)))
 
 # Returns a list of files that belong to installed packages listed in $1.
 # $1 has to include package versions.
 # Spaces in filenames in the resulting list are replaced with `<`.
-override index_list_pkg_files = $(sort $(foreach x,$1,$(if $(wildcard $(index_dir)/$x),,$(error Package '$x' is not installed))$(call safe_shell,cat '$(index_dir)/$x')))
+override index_list_pkg_files = $(sort $(foreach x,$1,$(if $(call file_exists,$(index_dir)/$x),,$(error Package '$x' is not installed))$(call safe_shell,cat '$(index_dir)/$x')))
 
 
 # --- PACKAGE MANAGEMENT INTERNALS ---
@@ -482,7 +486,7 @@ override index_list_pkg_files = $(sort $(foreach x,$1,$(if $(wildcard $(index_di
 # Requested packages will be saved to this file.
 override request_list_file := requested_packages.txt
 
-ifeq ($(wildcard $(request_list_file)),)
+ifeq ($(call file_exists,$(request_list_file)),)
 $(call safe_shell_exec,touch '$(request_list_file)')
 endif
 
@@ -808,7 +812,7 @@ $(call act_section, BROKEN PACKAGES )
 # Run `purge-broken` to destroy those.
 $(call act, list-broken \
 ,,List all broken packages.$(lf)A package might become broken if you interrupt its installation or removal.)
-	$(foreach x,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$(wildcard $(index_dir)/$(index_broken_prefix)*)),$(info $x))
+	$(foreach x,$(patsubst $(index_dir)/$(index_broken_prefix)%,%,$(call safe_wildcard,$(index_dir)/$(index_broken_prefix)*)),$(info $x))
 	@true
 
 # Destroys broken packages.
@@ -838,7 +842,7 @@ $(call act, cache-purge-unfinished \
 # Cleans the cache.
 $(call act, clean-cache \
 ,,Clean the entire archive cache.)
-	$(foreach x,$(wildcard $(CACHE_DIR)/*),$(call safe_shell_exec,rm -f '$x'))
+	$(foreach x,$(call safe_wildcard,$(CACHE_DIR)/*),$(call safe_shell_exec,rm -f '$x'))
 	@true
 
 # Accepts a list of packages, without versions. Downloads them, if they are not already in the cache.

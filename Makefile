@@ -74,9 +74,9 @@ endif
 # Same as `safe_shell`, but discards the output and expands to nothing.
 override safe_shell_exec = $(call,$(call safe_shell,$1))
 
-# Same as `$(wildcard ...)`, but without the dumb caching issues.
+# Same as `$(wildcard ...)`, but without the dumb caching issues and with more sanity checks.
 # Make tends to cache the results of `wildcard`, and doesn't invalidate them when it should.
-override wildcard_without_cache = $(eval override _local_list := $(call safe_shell,echo $1))$(if $(findstring *,$(_local_list)),,$(_local_list))
+override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,$(call shell_status,test -e '$x')),$x))
 
 # Downloads url $1 to file $2.
 # On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.
@@ -374,7 +374,7 @@ override cache_want_packages = \
 
 # $1 is a package name with version.
 # Returns the file name of its archive, which must be already in the cache. If it's not cached, emits an error.
-override cache_find_pkg_archive = $(eval override _local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call wildcard_without_cache,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Can't find package in the cache: $1))
+override cache_find_pkg_archive = $(eval override _local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call safe_wildcard,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Can't find package in the cache: $1))
 
 # $1 is a list of packages, with versions.
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.

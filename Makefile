@@ -177,12 +177,14 @@ override database_tmp_file_original := database.current_original
 
 # Temporary database directory.
 override database_tmp_dir := database
-# A pattern for package desciption files.
-override desc_pattern := $(database_tmp_dir)/*/desc
 
 # A file (that can be created by user) specifying preferred package alternatives.
 # It should contain a space-separated list of `<alias>:<package>` entries.
 override database_alternatives_file := alternatives.txt
+
+
+# A pattern for package desciption files.
+override desc_pattern := $(database_tmp_dir)/*/desc
 
 # Converts description file names to package names (with versions).
 override desc_file_to_name_ver = $(patsubst $(subst *,%,$(desc_pattern)),%,$1)
@@ -226,8 +228,12 @@ $(database_tmp_file):
 	@true
 
 # The target that parses the database info a helper makefile.
-# We perform some conflict resolution on the packages here: sometimes two packages have the
-# same alias (or even a name of a package is an alias of a different one). In that case we strip the alias from one of the packages.
+# We perform some conflict resolution on the packages here: sometimes two packages have the same alias,
+# or even a name of a package is an alias of a different one. In that case we strip the alias from one of the packages.
+# If a package gets stripped of its canonical name, it's not added to the database.
+# When two aliases conflict, the first package (alphabetically, probably) gets precedence.
+# When an alias conflicts with a canonical name, the owner of the name gets preference.
+# Both rules can be overriden
 $(database_processed_file): $(database_tmp_file)
 	$(call var,_local_bad_conflict_resolutions :=)\
 	$(call var,_local_database_not_changed := $(strip \
@@ -247,6 +253,7 @@ $(database_processed_file): $(database_tmp_file)
 		$(call var,_local_pkg_list_with_aliases :=)\
 		$(call var,_local_dupe_check_list :=)\
 		$(call var,_local_conflict_resolutions := $(if $(call file_exists,$(database_alternatives_file)),$(call safe_shell,cat '$(database_alternatives_file)')))\
+		$(call var,_local_non_overriden_canonical_pkg_names := $(filter-out $(foreach x,$(_local_conflict_resolutions),$(word 1,$(subst :, ,$x))),$(call strip_ver,$(call desc_file_to_name_ver,$(_local_db_files)))))\
 		$(call var,_local_bad_conflict_resolutions := $(_local_conflict_resolutions))\
 		$(call var,_local_had_any_conflicts :=)\
 		$(foreach x,$(_local_db_files),\
@@ -255,6 +262,9 @@ $(database_processed_file): $(database_tmp_file)
 			$(call var,_local_file := $(call safe_shell,cat '$x'))\
 			$(call var,_local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
 			$(call var,_local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
+			$(call var,_local_aliases := $(foreach y,$(_local_aliases),$(if $(filter $y,$(_local_non_overriden_canonical_pkg_names)),\
+				$(call print_log,Note: package '$y' has alternative '$(_local_name)'.)$(call var,_local_had_any_conflicts := y),\
+				$y)))\
 			$(call var,_local_banned_names := $(foreach x,$(filter-out %:$(_local_name),$(_local_conflict_resolutions)),$(word 1,$(subst :, ,$x))))\
 			$(call var,_local_lhs := $(filter-out $(_local_banned_names),$(_local_name) $(_local_aliases)))\
 			$(foreach y,$(_local_lhs),\
@@ -262,12 +272,12 @@ $(database_processed_file): $(database_tmp_file)
 				$(if $(_local_conflict),\
 					$(call print_log,Warning: '$y' is provided by both)\
 					$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' (selected by default) and)\
-					$(call print_log,  '$(_local_name_ver)')\
+					$(call print_log,  '$(_local_name)')\
 					$(call var,_local_lhs := $(filter-out $y,$(_local_lhs)))\
 					$(call var,_local_had_any_conflicts := y)\
 				)\
 			)\
-			$(call var,_local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
+			$(call var,_local_dupe_check_list += $(addprefix $(_local_name)|,$(_local_lhs)))\
 			$(if $(filter-out $(_local_banned_names),$(_local_name)),\
 				$(call var,_local_bad_conflict_resolutions := $(filter-out $(addsuffix :$(_local_name),$(_local_lhs)),$(_local_bad_conflict_resolutions)))\
     			$(call code_pkg_version_var,$@,$(_local_name_ver))\
@@ -276,16 +286,16 @@ $(database_processed_file): $(database_tmp_file)
     			$(call var,_local_pkg_list += $(_local_name))\
     			$(call var,_local_pkg_list_with_aliases += $(_local_lhs))\
 			,\
-				$(call print_log,Note: package '$(_local_name)' is unaccessible because of the selected alternatives.)\
+				$(call print_log,Note: package '$(_local_name)' is inaccessible because of the selected alternatives.)\
 			)\
 		)\
 		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
 		$(file >>$@,override FULL_ALIAS_LIST := $(sort $(_local_pkg_list_with_aliases)))\
 		$(if $(_local_had_any_conflicts),\
 			$(call print_log,Note: if you don't like the alternatives selected by default$(comma) edit '$(database_alternatives_file)'.)\
-			$(call print_log,  To select an alternative$(comma) add following to it: '<alias>:<package>'$(comma))\
-			$(call print_log,  where '<package>' is the name of the package you want$(comma))\
-			$(call print_log,  and '<alias>' is its alias that conflicts with other packages.)\
+			$(call print_log,  To select an alternative$(comma) add following to the file: '<target>:<override>'$(comma))\
+			$(call print_log,  where '<target>' is what's being overriden (a package name, or its alias)$(comma))\
+			$(call print_log,  and '<override>' is the name of the package you want to use.)\
 			$(call print_log,  Then run `$(self) reparse-database` to apply the changes.)\
 		)\
 	)
@@ -304,8 +314,10 @@ ifneq ($(filter __database_%,$(MAKECMDGOALS)),)
 override __deps := $(if $(filter __database_nodeps,$(MAKECMDGOALS)),,y)
 include $(database_processed_file)
 # Also validate all package names specified in the command line
-ifeq ($(filter __database_dont_check_canonical_names,$(MAKECMDGOALS)),)
-$(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(VERSION_OF_$x),,$(error Unknown package: '$x')))
+ifneq ($(filter __database_allow_aliases,$(MAKECMDGOALS)),)
+$(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(filter $x,$(FULL_ALIAS_LIST)),,$(error Unknown package or package alias: '$x')))
+else
+$(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(filter $x,$(FULL_PACKAGE_LIST)),,$(error Unknown package: '$x')))
 endif
 endif
 
@@ -331,8 +343,8 @@ __database_nodeps:
 
 # A dummy target similar to `__database_load`, but allows package aliases to be passed instead of actual package names.
 # Good for resolving package aliases into actual package names.
-.PHONY: __database_dont_check_canonical_names
-__database_dont_check_canonical_names:
+.PHONY: __database_allow_aliases
+__database_allow_aliases:
 	@true
 
 # Given a list of package names without versions, returns the version of each package.
@@ -380,7 +392,7 @@ override database_query_available_with_aliases = $(call invoke_database_process,
 # override database_query_verify = $(call invoke_database_process,__database_verify __packages='$1')
 
 # Given a list of package names and/or aliases, returns their canonical names.
-override database_query_resolve_aliases = $(patsubst PKG@@%,%,$(call invoke_database_process,__database_nodeps __database_dont_check_canonical_names $(addprefix PKG@@,$1)))
+override database_query_resolve_aliases = $(patsubst PKG@@%,%,$(call invoke_database_process,__database_nodeps __database_allow_aliases $(addprefix PKG@@,$1)))
 
 # $1 is a list of package names, without versions.
 # Returns $1, with all dependencies added.
@@ -646,14 +658,14 @@ override pkg_print_then_apply_delta = \
 # #3 is human-readable descrption
 # Note that the target name is uglified (unless it's the target that's being called AND unless our makefile is being examined for autocompletion).
 override act = \
-	$(call var,_locat_target := $(if $(or $(called_from_autocompletion),$(filter $1,$(word 1,$(MAKECMDGOALS)))),,>>)$(strip $1))\
-	$(eval .PHONY: $(_locat_target))\
+	$(call var,_local_target := $(if $(or $(called_from_autocompletion),$(filter $1,$(word 1,$(MAKECMDGOALS)))),,>>)$(strip $1))\
+	$(eval .PHONY: $(_local_target))\
 	$(if $(display_help),\
 		$(info $(self) $(strip $1)$(if $2, <$2>))\
 		$(info $(space)$(space)$(subst $(lf),$(lf)$(space)$(space),$3))\
 		$(info )\
 	)\
-	$(_locat_target): ; $(if $2,,$$(stop_if_have_parameters))
+	$(_local_target): ; $(if $2,,$$(stop_if_have_parameters))
 
 $(if $(display_help),\
 	$(if $(p_is_set),$(error This action requires no parameters.))\
@@ -683,7 +695,7 @@ $(call act_section, PACKAGE DATABASE )
 # Lists all available packages in the repo, without versions.
 $(call act, list-all \
 ,,List all packages available in the repository$(comma) including their aliases.\
-$(lf)Only some of the commands accept package aliases instead of names.\
+$(lf)Only some of the commands accept package aliases in addition to actual names.\
 $(lf)Doesn't output package versions.)
 	$(foreach x,$(database_query_available_with_aliases),$(info $x))
 	@true

@@ -60,6 +60,9 @@ $(strip)
 $(strip)
 endef
 
+# Used to create local variables in a safer way. E.g. `$(call var,x := 42)`.
+override var = $(eval override $(subst $,$$$$,$1))
+
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
 # Same as `$(shell ...)`, but triggers a error on failure.
 override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
@@ -139,17 +142,17 @@ ifneq ($(filter-out 0 1,$(words $(MAKECMDGOALS))),)
 # Otherwise, convert all targets after the first one to paramters. Also replace `_` with a proper prefix.
 # Also create a list of fake empty recipes for those targets.
 $(if $(filter __database_%,$(MAKECMDGOALS)),,\
-	$(eval override p_is_set := y)\
-	$(eval override p := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))\
+	$(call var,p_is_set := y)\
+	$(call var,p := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))\
 	$(foreach x,$p,$(eval .PHONY: $x)$(eval $x: ; @true))\
-	$(eval override p := $(patsubst _%,$(REPO_PACKAGE_COMMON_PREFIX)%,$p))\
+	$(call var,p := $(patsubst _%,$(REPO_PACKAGE_COMMON_PREFIX)%,$p))\
 	)
 endif
 
 
 # --- DETECT A RESTART ---
 
-$(if $(MAKE_RESTARTS),$(eval override make_was_restarted := yes))
+$(if $(MAKE_RESTARTS),$(call var,make_was_restarted := yes))
 ifneq ($(make_was_restarted),)
 $(call print_log,Restaring 'make'...)
 endif
@@ -215,7 +218,7 @@ $(database_tmp_file):
 	@true
 
 $(database_processed_file): $(database_tmp_file)
-	$(eval override _local_database_not_changed := $(strip \
+	$(call var,_local_database_not_changed := $(strip \
 		$(if $(wildcard $@),$(call,$(shell cmp -s '$(database_tmp_file)' '$(database_tmp_file_original)'))$(filter 0,$(.SHELLSTATUS)))\
 	))\
 	$(if $(_local_database_not_changed),\
@@ -227,29 +230,29 @@ $(database_processed_file): $(database_tmp_file)
 		$(call safe_shell_exec,tar -C '$(database_tmp_dir)' -xzf '$(database_tmp_file)')\
 		$(if $(wildcard $@),$(call safe_shell_exec,mv -f '$@' '$(database_processed_file_bak)'))\
 		$(call print_log,Processing package database...)\
-		$(eval override _local_db_files := $(sort $(wildcard $(desc_pattern))))\
-		$(eval override _local_pkg_list :=)\
-		$(eval override _local_dupe_check_list :=)\
+		$(call var,_local_db_files := $(sort $(wildcard $(desc_pattern))))\
+		$(call var,_local_pkg_list :=)\
+		$(call var,_local_dupe_check_list :=)\
 		$(foreach x,$(_local_db_files),\
-			$(eval override _local_name_ver := $(call desc_file_to_name_ver,$x))\
-			$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
+			$(call var,_local_name_ver := $(call desc_file_to_name_ver,$x))\
+			$(call var,_local_name := $(call strip_ver,$(_local_name_ver)))\
 			$(call code_pkg_version_var,$@,$(_local_name_ver))\
-			$(eval override _local_file := $(call safe_shell,cat $x))\
-			$(eval override _local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
-			$(eval override _local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
-			$(eval override _local_lhs := $(_local_name) $(_local_aliases))\
-			$(eval override _local_pkg_list += $(_local_name))\
+			$(call var,_local_file := $(call safe_shell,cat $x))\
+			$(call var,_local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
+			$(call var,_local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
+			$(call var,_local_lhs := $(_local_name) $(_local_aliases))\
+			$(call var,_local_pkg_list += $(_local_name))\
 			$(foreach y,$(_local_lhs),\
-				$(eval override _local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
+				$(call var,_local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
 				$(if $(_local_conflict),\
 					$(call print_log,Warning: '$y' is provided by both)\
 					$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' and)\
 					$(call print_log,  '$(_local_name_ver)')\
 					$(call print_log,  The second option will be ignored by default.)\
-					$(eval override _local_lhs := $(filter-out $y,$(_local_lhs)))\
+					$(call var,_local_lhs := $(filter-out $y,$(_local_lhs)))\
 				)\
 			)\
-			$(eval override _local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
+			$(call var,_local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
 			$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
 			$(file >>$@,)\
 		)\
@@ -298,7 +301,7 @@ __database_list_all:
 # Uses `__packages`.
 .PHONY: __database_verify
 __database_verify:
-	$(eval override _local_missing := $(sort $(filter-out $(FULL_PACKAGE_LIST), $(__packages))))
+	$(call var,_local_missing := $(sort $(filter-out $(FULL_PACKAGE_LIST), $(__packages))))
 	$(if $(_local_missing),$(error Following packages are not known: $(_local_missing)))
 	@true
 
@@ -345,13 +348,13 @@ override cache_unfinished_prefix = ---
 # If the file is not cached, it's downloaded.
 override cache_download_file_if_missing = \
 	$(if $(wildcard $(foreach x,$1,$(CACHE_DIR)/$(notdir $x))),,\
-		$(eval override _local_continue := y)\
-		$(eval override _local_first := y)\
+		$(call var,_local_continue := y)\
+		$(call var,_local_first := y)\
 		$(foreach x,$1,$(if $(_local_continue),\
-			$(if $(_local_first),$(eval override _local_first :=),$(info Failed, trying different suffix.))\
+			$(if $(_local_first),$(call var,_local_first :=),$(info Failed, trying different suffix.))\
 			$(call print_log,Downloading '$(notdir $x)'...)\
 			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),,\
-				$(eval override _local_continue :=)\
+				$(call var,_local_continue :=)\
 				$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)' '$(CACHE_DIR)/$(notdir $x)')\
 			)\
 		))\
@@ -374,7 +377,7 @@ override cache_want_packages = \
 
 # $1 is a package name with version.
 # Returns the file name of its archive, which must be already in the cache. If it's not cached, emits an error.
-override cache_find_pkg_archive = $(eval override _local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call safe_wildcard,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Can't find package in the cache: $1))
+override cache_find_pkg_archive = $(call var,_local_file = $(firstword $(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),$(call safe_wildcard,$(CACHE_DIR)/$1*$x))))$(if $(_local_file),$(_local_file),$(error Can't find package in the cache: $1))
 
 # $1 is a list of packages, with versions.
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.
@@ -384,7 +387,7 @@ override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o
 
 # Lists current packages sitting in the cache.
 override cache_list_current = \
-	$(eval override _local_files := $(wildcard $(CACHE_DIR)/*))\
+	$(call var,_local_files := $(wildcard $(CACHE_DIR)/*))\
 	$(foreach x,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),\
 		$(patsubst $(CACHE_DIR)/%$x,%,$(filter $(CACHE_DIR)/%$x,$(_local_files)))\
 	)
@@ -445,7 +448,7 @@ override index_force_install = \
 	$(foreach p,$1,\
 		$(call index_stop_if_single_pkg_installed,$p)\
 		$(call cache_want_packages,$p)\
-		$(eval override _local_files := $(call cache_list_pkg_files,$p))\
+		$(call var,_local_files := $(call cache_list_pkg_files,$p))\
 		$(foreach x,$(_local_files),$(if $(wildcard $(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
 		$(foreach x,$(_local_files),$(file >>$(index_dir)/$(index_broken_prefix)$p,$x))\
 		$(call print_log,Extracting '$p'...)\
@@ -488,12 +491,12 @@ override pkg_set_request_list = $(call safe_shell_exec,echo >'$(request_list_fil
 
 # $1 is a list of packages, without versions. Emits an error if any packages in $1 are in the requested list.
 override pkg_stop_if_in_request_list = \
-	$(eval override _local_delta := $(sort $(filter $1,$(pkg_request_list))))\
+	$(call var,_local_delta := $(sort $(filter $1,$(pkg_request_list))))\
 	$(if $(_local_delta),$(error Following packages are already requested: $(_local_delta)))
 
 # $1 is a list of packages, without versions. Emits an error if any packages in $1 are not in the requested list.
 override pkg_stop_if_not_in_request_list = \
-	$(eval override _local_delta := $(sort $(filter-out $(pkg_request_list),$1)))\
+	$(call var,_local_delta := $(sort $(filter-out $(pkg_request_list),$1)))\
 	$(if $(_local_delta),$(error Following packages are already not requested: $(_local_delta)))
 
 # --- PACKAGE MANAGEMENT INTERFACE ---
@@ -517,8 +520,8 @@ override pkg_request_list_remove = $(call pkg_stop_if_not_in_request_list,$1)$(c
 #   Note that we do `$(foreach x,$(pkg_request_list) ...` rather than passing the entire list
 #   to `database_query_deps` to reduce the length of command-line parameters that are passed around.
 override pkg_compute_delta = $(strip \
-	$(eval override _state_cur := $(index_list_all_installed))\
-	$(eval override _state_target := $(sort $(foreach x,$(pkg_request_list),$(call database_query_full_name,$(call database_query_deps,$x)))))\
+	$(call var,_state_cur := $(index_list_all_installed))\
+	$(call var,_state_target := $(sort $(foreach x,$(pkg_request_list),$(call database_query_full_name,$(call database_query_deps,$x)))))\
 	$(addprefix <,$(filter-out $(_state_target),$(_state_cur)))\
 	$(addprefix >,$(filter-out $(_state_cur),$(_state_target))))
 
@@ -537,14 +540,14 @@ override pkg_pretty_print_delta = \
 # Same as pkg_pretty_print_delta`, but package updates are printed separately and prefixed with `> `.
 override pkg_pretty_print_delta_fancy = \
 	$(if $(and $1,$2),$(info $2))\
-	$(eval override _local_delta := $1)\
-	$(eval override _local_upd :=)\
+	$(call var,_local_delta := $1)\
+	$(call var,_local_upd :=)\
 	$(foreach x,$(_local_delta),$(if $(filter <%,$x),\
-		$(eval override _local_name_ver := $(patsubst <%,%,$x))\
-		$(eval override _local_name := $(call strip_ver,$(_local_name_ver)))\
+		$(call var,_local_name_ver := $(patsubst <%,%,$x))\
+		$(call var,_local_name := $(call strip_ver,$(_local_name_ver)))\
 		$(foreach y,$(_local_delta),$(if $(filter 1,$(words $(sort $(_local_name) $(call strip_ver,$(patsubst >%,%,$y))))),\
-			$(eval override _local_upd += $(_local_name_ver)>$(subst >$(_local_name)-,,$y))\
-			$(eval override _local_delta := $(filter-out $x $y,$(_local_delta)))\
+			$(call var,_local_upd += $(_local_name_ver)>$(subst >$(_local_name)-,,$y))\
+			$(call var,_local_delta := $(filter-out $x $y,$(_local_delta)))\
 		))\
 	))\
 	$(foreach x,$(patsubst <%,%,$(filter <%,$(_local_delta))),$(info - $x))\
@@ -579,7 +582,7 @@ override pkg_print_then_apply_delta = \
 # #3 is human-readable descrption
 # Note that the target name is uglified (unless it's the target that's being called AND unless our makefile is being examined for autocompletion).
 override act = \
-	$(eval override _locat_target := $(if $(or $(called_from_autocompletion),$(filter $1,$(word 1,$(MAKECMDGOALS)))),,>>)$(strip $1))\
+	$(call var,_locat_target := $(if $(or $(called_from_autocompletion),$(filter $1,$(word 1,$(MAKECMDGOALS)))),,>>)$(strip $1))\
 	$(eval .PHONY: $(_locat_target))\
 	$(if $(display_help),\
 		$(info $(self) $(strip $1)$(if $2, <$2>))\

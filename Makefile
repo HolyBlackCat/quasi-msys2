@@ -180,6 +180,10 @@ override database_tmp_dir := database
 # A pattern for package desciption files.
 override desc_pattern := $(database_tmp_dir)/*/desc
 
+# A file (that can be created by user) specifying preferred package alternatives.
+# It should contain a space-separated list of `<alias>:<package>` entries.
+override database_alternatives_file := alternatives.txt
+
 # Converts description file names to package names (with versions).
 override desc_file_to_name_ver = $(patsubst $(subst *,%,$(desc_pattern)),%,$1)
 
@@ -210,7 +214,7 @@ override code_pkg_version_var = $(file >>$1,override VERSION_OF_$(call strip_ver
 # The first name in $2 is considered to be the actual name of the package.
 override code_pkg_target = \
 	$(file >>$1,.PHONY: $(addprefix PKG@@,$(sort $2)))\
-	$(file >>$1,$(addprefix PKG@@,$(sort $2)): $(addprefix PKG@@,$(sort $(call strip_ver_cond,$3))) ; @echo 'PKG@@$(word 1,$2)')
+	$(file >>$1,$(addprefix PKG@@,$(sort $2)): $$(if $$(__deps),$(addprefix PKG@@,$(sort $(call strip_ver_cond,$3)))) ; @echo 'PKG@@$(word 1,$2)')
 
 
 # We don't use `.INTERMEDIATE`, since the recipe for `$(database_processed_file)` moves this file rather than deleting it.
@@ -221,7 +225,11 @@ $(database_tmp_file):
 	$(if $(call use_wget,$(REPO_DB_URL),$@),$(error Unable to download the database. Try again with `--trace` to debug))
 	@true
 
+# The target that parses the database info a helper makefile.
+# We perform some conflict resolution on the packages here: sometimes two packages have the
+# same alias (or even a name of a package is an alias of a different one). In that case we strip the alias from one of the packages.
 $(database_processed_file): $(database_tmp_file)
+	$(call var,_local_bad_conflict_resolutions :=)\
 	$(call var,_local_database_not_changed := $(strip \
 		$(if $(call file_exists,$@),$(call,$(shell cmp -s '$(database_tmp_file)' '$(database_tmp_file_original)'))$(filter 0,$(.SHELLSTATUS)))\
 	))\
@@ -236,48 +244,75 @@ $(database_processed_file): $(database_tmp_file)
 		$(call print_log,Processing package database...)\
 		$(call var,_local_db_files := $(sort $(call safe_wildcard,$(desc_pattern))))\
 		$(call var,_local_pkg_list :=)\
+		$(call var,_local_pkg_list_with_aliases :=)\
 		$(call var,_local_dupe_check_list :=)\
+		$(call var,_local_conflict_resolutions := $(if $(call file_exists,$(database_alternatives_file)),$(call safe_shell,cat '$(database_alternatives_file)')))\
+		$(call var,_local_bad_conflict_resolutions := $(_local_conflict_resolutions))\
+		$(call var,_local_had_any_conflicts :=)\
 		$(foreach x,$(_local_db_files),\
 			$(call var,_local_name_ver := $(call desc_file_to_name_ver,$x))\
 			$(call var,_local_name := $(call strip_ver,$(_local_name_ver)))\
-			$(call code_pkg_version_var,$@,$(_local_name_ver))\
-			$(call var,_local_file := $(call safe_shell,cat $x))\
+			$(call var,_local_file := $(call safe_shell,cat '$x'))\
 			$(call var,_local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
 			$(call var,_local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
-			$(call var,_local_lhs := $(_local_name) $(_local_aliases))\
-			$(call var,_local_pkg_list += $(_local_name))\
+			$(call var,_local_banned_names := $(foreach x,$(filter-out %:$(_local_name),$(_local_conflict_resolutions)),$(word 1,$(subst :, ,$x))))\
+			$(call var,_local_lhs := $(filter-out $(_local_banned_names),$(_local_name) $(_local_aliases)))\
 			$(foreach y,$(_local_lhs),\
 				$(call var,_local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
 				$(if $(_local_conflict),\
 					$(call print_log,Warning: '$y' is provided by both)\
-					$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' and)\
+					$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' (selected by default) and)\
 					$(call print_log,  '$(_local_name_ver)')\
-					$(call print_log,  The second option will be ignored by default.)\
 					$(call var,_local_lhs := $(filter-out $y,$(_local_lhs)))\
+					$(call var,_local_had_any_conflicts := y)\
 				)\
 			)\
 			$(call var,_local_dupe_check_list += $(addprefix $(_local_name_ver)|,$(_local_lhs)))\
-			$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
-			$(file >>$@,)\
+			$(if $(strip $(_local_lhs)),\
+				$(call var,_local_bad_conflict_resolutions := $(filter-out $(addsuffix :$(_local_name),$(_local_lhs)),$(_local_bad_conflict_resolutions)))\
+    			$(call code_pkg_version_var,$@,$(_local_name_ver))\
+    			$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
+				$(file >>$@,)\
+    			$(call var,_local_pkg_list += $(_local_name))\
+    			$(call var,_local_pkg_list_with_aliases += $(_local_lhs))\
+			,\
+				$(call print_log,Warning: package '$(_local_name)' is unaccessible because of the selected alternatives.)\
+			)\
 		)\
 		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
+		$(file >>$@,override FULL_ALIAS_LIST := $(sort $(_local_pkg_list_with_aliases)))\
+		$(if $(_local_had_any_conflicts),\
+			$(call print_log,Note: if you don't like the alternatives selected by default$(comma) edit '$(database_alternatives_file)'.)\
+			$(call print_log,  To select an alternative$(comma) add following to it: '<alias>:<package>'$(comma))\
+			$(call print_log,  where '<package>' is the name of the package you want$(comma))\
+			$(call print_log,  and '<alias>' is its alias that conflicts with other packages.)\
+			$(call print_log,  Then run `$(self) reparse-database` to apply the changes.)\
+		)\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
 	$(call safe_shell_exec,mv -f '$(database_tmp_file)' '$(database_tmp_file_original)')
+	$(if $(_local_bad_conflict_resolutions),\
+		$(call print_log,Warning: following entries in '$(database_alternatives_file)' are invalid:)\
+		$(foreach x,$(_local_bad_conflict_resolutions),$(call print_log,* $x))\
+		$(call print_log,THIS MAY CAUSE PROBLEMS. Fix the file and run '$(self) reparse-database'.)\
+	)
 	@true
 
 
 # Load the database if we got a query.
 ifneq ($(filter __database_%,$(MAKECMDGOALS)),)
+override __deps := $(if $(filter __database_nodeps,$(MAKECMDGOALS)),,y)
 include $(database_processed_file)
 # Also validate all package names specified in the command line
+ifeq ($(filter __database_dont_check_canonical_names,$(MAKECMDGOALS)),)
 $(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(VERSION_OF_$x),,$(error Unknown package: '$x')))
+endif
 endif
 
 # Internal database interface:
 
 # Invokes make with $1 parameters, and returns the result.
-override invoke_database_process = $(call safe_shell,$(MAKE) $(MAKEOVERRIDES) $1)
+override invoke_database_process = $(call safe_shell,$(MAKE) $(MAKEOVERRIDES) -r $1)
 
 
 # Serves as the query parameter.
@@ -286,6 +321,18 @@ __packages = $(error The parameter `__packages` is not set)
 # A dummy target, simply loads the database. Good for querying package dependencies.
 .PHONY: __database_load
 __database_load:
+	@true
+
+# A dummy target similar to `__database_load`, but silences any information about the dependencies.
+# Good for resolving package aliases into actual package names.
+.PHONY: __database_nodeps
+__database_nodeps:
+	@true
+
+# A dummy target similar to `__database_load`, but allows package aliases to be passed instead of actual package names.
+# Good for resolving package aliases into actual package names.
+.PHONY: __database_dont_check_canonical_names
+__database_dont_check_canonical_names:
 	@true
 
 # Given a list of package names without versions, returns the version of each package.
@@ -299,6 +346,12 @@ __database_get_versions:
 .PHONY: __database_list_all
 __database_list_all:
 	$(info $(FULL_PACKAGE_LIST))
+	@true
+
+# Returns a list of all available packages, including aliases.
+.PHONY: __database_list_all_with_aliases
+__database_list_all_with_aliases:
+	$(info $(FULL_ALIAS_LIST))
 	@true
 
 # Verifies a list of packages.
@@ -318,9 +371,16 @@ override database_query_empty = $(call,$(call invoke_database_process,__database
 # Returns a list of all available packages.
 override database_query_available = $(call invoke_database_process,__database_list_all)
 
+# Returns a list of all available packages.
+override database_query_available_with_aliases = $(call invoke_database_process,__database_list_all_with_aliases)
+
 # Verifies a list of packages.
 # Causes an error on failure, expands to nothing.
-override database_query_verify = $(call invoke_database_process,__database_verify __packages='$1')
+# Commented out because it doesn't respect package aliases.
+# override database_query_verify = $(call invoke_database_process,__database_verify __packages='$1')
+
+# Given a list of package names and/or aliases, returns their canonical names.
+override database_query_resolve_aliases = $(patsubst PKG@@%,%,$(call invoke_database_process,__database_nodeps __database_dont_check_canonical_names $(addprefix PKG@@,$1)))
 
 # $1 is a list of package names, without versions.
 # Returns $1, with all dependencies added.
@@ -512,12 +572,12 @@ override pkg_request_list = $(call safe_shell,cat '$(request_list_file)')
 override pkg_request_list_reset = $(call pkg_set_request_list,)
 
 # Adds packages to the list of requested packages.
-# $1 is a list of packages without versions.
-override pkg_request_list_add = $(call database_query_verify,$1)$(call pkg_stop_if_in_request_list,$1)$(call pkg_set_request_list,$(pkg_request_list) $1)
+# $1 is a list of packages without versions, possibly aliases.
+override pkg_request_list_add = $(call var,_local_pkgs := $(call database_query_resolve_aliases,$1))$(call pkg_stop_if_in_request_list,$(_local_pkgs))$(call pkg_set_request_list,$(pkg_request_list) $(_local_pkgs))
 
 # Adds packages to the list of requested packages.
 # $1 is a list of packages without versions.
-override pkg_request_list_remove = $(call pkg_stop_if_not_in_request_list,$1)$(call pkg_set_request_list,$(filter-out $1,$(pkg_request_list)))
+override pkg_request_list_remove = $(call var,_local_pkgs := $(call database_query_resolve_aliases,$1))$(call pkg_stop_if_not_in_request_list,$(_local_pkgs))$(call pkg_set_request_list,$(filter-out $(_local_pkgs),$(pkg_request_list)))
 
 # Computes the delta between the current state and the desired state.
 # Returns a list of packages with prefixes: `>` means a package should be installed, and `<` means it should be removed.
@@ -622,6 +682,14 @@ $(call act_section, PACKAGE DATABASE )
 
 # Lists all available packages in the repo, without versions.
 $(call act, list-all \
+,,List all packages available in the repository$(comma) including their aliases.\
+$(lf)Only some of the commands accept package aliases instead of names.\
+$(lf)Doesn't output package versions.)
+	$(foreach x,$(database_query_available_with_aliases),$(info $x))
+	@true
+
+# Lists all available packages in the repo, without versions.
+$(call act, list-all-canonical \
 ,,List all packages available in the repository.$(lf)Doesn't output package versions.)
 	$(foreach x,$(database_query_available),$(info $x))
 	@true
@@ -630,7 +698,6 @@ $(call act, list-all \
 $(call act, update \
 ,,Download a new database. The existing database will be backed up.)
 	$(call safe_shell_exec,$(MAKE) -B '$(database_processed_file)')
-	$(database_query_empty)
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 
@@ -640,10 +707,16 @@ $(call act, get-ver \
 	$(foreach x,$(call database_query_full_name,$p),$(info $x))
 	@true
 
-# Accepts a is a list of packages. Returns the same list, with all dependencies added.
+# Accepts a list of packages. Returns the same list, with all dependencies added.
 $(call act, get-deps \
 ,packages,Print the specified packages and all their dependencies.)
 	$(foreach x,$(call database_query_deps,$p),$(info $x))
+	@true
+
+# Acceps a list of packages, prints their canonical names.
+$(call act, get-canonical-name \
+,packages-or-aliases,Print the canonical names of the packages.)
+	$(foreach x,$(call database_query_resolve_aliases,$p),$(info $x))
 	@true
 
 # Cleans the database.
@@ -652,6 +725,16 @@ $(call act, clean-database \
 $(lf)A new database will be downloaded next time it is needed.)
 	@rm -f '$(database_processed_file)' '$(database_processed_file_bak)' '$(database_tmp_file)' '$(database_tmp_file_original)'
 	@rm -rf '$(database_tmp_dir)'
+
+# Downloads a new database.
+$(call act, reparse-database \
+,,Reparse the database. Use this to update the database after\
+$(lf)changing `$(database_alternatives_file)`$(comma) otherwise it shouldn't be necessary.)
+	$(call safe_shell_exec,rm -f '$(database_processed_file)')
+	$(call safe_shell_exec,mv -f '$(database_tmp_file_original)' '$(database_tmp_file)' || true)
+	$(call safe_shell_exec,$(MAKE) '$(database_processed_file)')
+	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
+	@true
 
 
 # PACKAGE MANAGEMENT
@@ -671,14 +754,14 @@ $(call act, list-req \
 
 # Installs packages (without versions specified).
 $(call act, install \
-,packages,Install packages.$(lf)Equivalent to '$(self) request' followed by '$(self) apply-delta'.)
+,packages-or-aliases,Install packages.$(lf)Equivalent to '$(self) request' followed by '$(self) apply-delta'.)
 	$(call pkg_request_list_add,$p)
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 
 # Removes packages (without versions specified).
 $(call act, remove \
-,packages,Remove packages.$(lf)Equivalent to '$(self) undo-request' followed by '$(self) apply-delta'.)
+,packages-or-aliases,Remove packages.$(lf)Equivalent to '$(self) undo-request' followed by '$(self) apply-delta'.)
 	$(call pkg_request_list_remove,$p)
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
@@ -728,14 +811,14 @@ $(lf)Clean the cache.)
 
 # Adds packages (without versions) to the request list.
 $(call act, request \
-,packages,Request packages to be installed.$(lf)The packages and their dependencies will be\
+,packages-or-aliases,Request packages to be installed.$(lf)The packages and their dependencies will be\
 $(lf)installed next time '$(self) apply-delta' is called.)
 	$(call pkg_request_list_add,$p)
 	@true
 
 # Removes packages (without versions) from the request list.
 $(call act, undo-request \
-,packages,Request packages to not be installed.$(lf)The packages and any dependencies that are no longer needed\
+,packages-or-aliases,Request packages to not be installed.$(lf)The packages and any dependencies that are no longer needed\
 $(lf)will be removed next time '$(self) apply-delta' is called.)
 	$(call pkg_request_list_remove,$p)
 	@true

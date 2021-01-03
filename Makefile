@@ -427,7 +427,7 @@ override cache_download_file_if_missing = \
 		$(call var,_local_continue := y)\
 		$(call var,_local_first := y)\
 		$(foreach x,$1,$(if $(_local_continue),\
-			$(if $(_local_first),$(call var,_local_first :=),$(info Failed, trying different suffix.))\
+			$(if $(_local_first),$(call var,_local_first :=),$(call print_log,Failed, trying different suffix.))\
 			$(call print_log,Downloading '$(notdir $x)'...)\
 			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),,\
 				$(call var,_local_continue :=)\
@@ -709,7 +709,7 @@ $(call act, list-all-canonical \
 # Downloads a new database.
 $(call act, update \
 ,,Download a new database. The existing database will be backed up.)
-	$(call safe_shell_exec,$(MAKE) -B '$(database_processed_file)')
+	$(call safe_shell_exec,$(MAKE) 1>&2 -B '$(database_processed_file)')
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 
@@ -744,7 +744,7 @@ $(call act, reparse-database \
 $(lf)changing `$(database_alternatives_file)`$(comma) otherwise it shouldn't be necessary.)
 	$(call safe_shell_exec,rm -f '$(database_processed_file)')
 	$(call safe_shell_exec,mv -f '$(database_tmp_file_original)' '$(database_tmp_file)' || true)
-	$(call safe_shell_exec,$(MAKE) '$(database_processed_file)')
+	$(call safe_shell_exec,$(MAKE) 1>&2 '$(database_processed_file)')
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 
@@ -799,26 +799,26 @@ $(call act, reinstall-all \
 # Updates the database, upgrades packages, and fixes stuff.
 $(call act, upgrade \
 ,,Update package database and upgrade all packages.)
-	$(call safe_shell_exec, $(MAKE) upgrade-keep-cache)
-	$(call safe_shell_exec, $(MAKE) cache-remove-unused)
+	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
 	@true
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, upgrade-keep-cache \
 ,,Update package database and upgrade all packages.\
 $(lf)Don't remove unused packages from the cache.)
-	$(call safe_shell_exec, $(MAKE) update)
-	$(call pkg_apply_delta,$(pkg_compute_delta))
+	$(call safe_shell_exec,$(MAKE) -B '$(database_processed_file)')
+	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	$(info Cleaning up...)
-	$(call safe_shell_exec, $(MAKE) cache-purge-unfinished)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
 	@true
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, upgrade-clean-cache \
 ,,Update package database and upgrade all packages.\
 $(lf)Clean the cache.)
-	$(call safe_shell_exec, $(MAKE) upgrade-keep-cache)
-	$(call safe_shell_exec, $(MAKE) clean-cache)
+	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
+	$(call safe_shell_exec, $(MAKE) 1>&2 clean-cache)
 	@true
 
 # Adds packages (without versions) to the request list.
@@ -984,8 +984,8 @@ $(call act, cache-remove-unused \
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
 $(call act, cache-installed-only \
 ,,Make sure the cache contains all installed packages, and nothing else.)
-	$(call safe_shell_exec, $(MAKE) cache-add-missing)
-	$(call safe_shell_exec, $(MAKE) cache-remove-unused)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-add-missing)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
 	@true
 
 # Accepts a list of packages, without versions. Outputs the list of files contained in them.

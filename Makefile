@@ -229,11 +229,12 @@ $(database_tmp_file):
 
 # The target that parses the database info a helper makefile.
 # We perform some conflict resolution on the packages here: sometimes two packages have the same alias,
-# or even a name of a package is an alias of a different one. In that case we strip the alias from one of the packages.
-# If a package gets stripped of its canonical name, it's not added to the database.
-# When two aliases conflict, the first package (alphabetically, probably) gets precedence.
-# When an alias conflicts with a canonical name, the owner of the name gets preference.
-# Both rules can be overriden
+#   or even a name of a package is an alias of a different one. In that case we strip the alias from one of the packages.
+#   If a package gets stripped of its canonical name, it's not added to the database.
+#   When two aliases conflict, the first package (alphabetically, probably) gets precedence.
+#   When an alias conflicts with a canonical name, the owner of the name gets preference.
+#   Both rules can be overriden.
+# It seems a package is allowed to announce an alias that matches its name. We filter out such aliases.
 $(database_processed_file): $(database_tmp_file)
 	$(call var,_local_bad_conflict_resolutions :=)\
 	$(call var,_local_database_not_changed := $(strip \
@@ -261,7 +262,7 @@ $(database_processed_file): $(database_tmp_file)
 			$(call var,_local_name := $(call strip_ver,$(_local_name_ver)))\
 			$(call var,_local_file := $(call safe_shell,cat '$x'))\
 			$(call var,_local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
-			$(call var,_local_aliases := $(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file))))\
+			$(call var,_local_aliases := $(filter-out $(_local_name),$(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file)))))\
 			$(call var,_local_aliases := $(foreach y,$(_local_aliases),$(if $(filter $y,$(_local_non_overriden_canonical_pkg_names)),\
 				$(call print_log,Note: package '$y' has alternative '$(_local_name)'.)$(call var,_local_had_any_conflicts := y),\
 				$y)))\

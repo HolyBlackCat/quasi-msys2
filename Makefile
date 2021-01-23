@@ -63,6 +63,10 @@ endef
 # Used to create local variables in a safer way. E.g. `$(call var,x := 42)`.
 override var = $(eval override $(subst $,$$$$,$1))
 
+# Encloses $1 in single quotes, with proper escaping for the shell.
+# If you makefile uses single quotes everywhere, a decent way to transition is to manually search and replace `'(\$(?:.|\(.*?\)))'` with `$(call quote,$1)`.
+override quote = '$(subst ','"'"',$1)'
+
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
 # Same as `$(shell ...)`, but triggers a error on failure.
 override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
@@ -79,18 +83,18 @@ override safe_shell_exec = $(call,$(call safe_shell,$1))
 
 # Expands to non-empty string if the file `$1` exists. Can handle spaces in file names.
 # Doesn't have the lame caching issues of the built-in `wildcard`.
-override file_exists = $(filter 0,$(call shell_status,test -e '$1'))
+override file_exists = $(filter 0,$(call shell_status,test -e $(call quote,$1)))
 
 # Same as the built-in `wildcard`, but without the dumb caching issues and with more sanity checks.
 # Make tends to cache the results of `wildcard`, and doesn't invalidate them when it should.
-override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,$(call shell_status,test -e '$x')),$x))
+override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,$(call shell_status,test -e $(call quote,$x))),$x))
 
 # Downloads url $1 to file $2.
 # On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.
-override use_wget = $(filter-out 0,$(call shell_status,wget '$1' $(if $(filter --trace,$(MAKEFLAGS)),,-q) -c --show-progress -O '$2' || (rm -f '$2' && false)))
+override use_wget = $(filter-out 0,$(call shell_status,wget $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,-q) -c --show-progress -O $(call quote,$2) || (rm -f $(call quote,$2) && false)))
 
 # Prints $1 to stderr.
-override print_log = $(call safe_shell_exec,echo >&2 '$(subst ','"'"',$1)')
+override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))
 
 # Removes the last occurence of $1 in $2, and everything that follows.
 # $2 has to contain no spaces (same for $1).
@@ -223,7 +227,7 @@ override code_pkg_target = \
 .SECONDARY: $(database_tmp_file)
 $(database_tmp_file):
 	$(call print_log,Downloading package database...)
-	$(call safe_shell_exec,rm -f '$@')
+	$(call safe_shell_exec,rm -f $(call quote,$@))
 	$(if $(call use_wget,$(REPO_DB_URL),$@),$(error Unable to download the database. Try again with `--trace` to debug))
 	@true
 
@@ -238,29 +242,29 @@ $(database_tmp_file):
 $(database_processed_file): $(database_tmp_file)
 	$(call var,_local_bad_conflict_resolutions :=)\
 	$(call var,_local_database_not_changed := $(strip \
-		$(if $(call file_exists,$@),$(call,$(shell cmp -s '$(database_tmp_file)' '$(database_tmp_file_original)'))$(filter 0,$(.SHELLSTATUS)))\
+		$(if $(call file_exists,$@),$(call,$(shell cmp -s $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original))))$(filter 0,$(.SHELLSTATUS)))\
 	))\
 	$(if $(_local_database_not_changed),\
 		$(call print_log,The database has not changed.)\
 	,\
 		$(call print_log,Extracting package database...)\
-		$(call safe_shell_exec,rm -rf '$(database_tmp_dir)')\
-		$(call safe_shell_exec,mkdir -p '$(database_tmp_dir)')\
-		$(call safe_shell_exec,tar -C '$(database_tmp_dir)' -xzf '$(database_tmp_file)')\
-		$(if $(call file_exists,$@),$(call safe_shell_exec,mv -f '$@' '$(database_processed_file_bak)'))\
+		$(call safe_shell_exec,rm -rf $(call quote,$(database_tmp_dir)))\
+		$(call safe_shell_exec,mkdir -p $(call quote,$(database_tmp_dir)))\
+		$(call safe_shell_exec,tar -C $(call quote,$(database_tmp_dir)) -xzf $(call quote,$(database_tmp_file)))\
+		$(if $(call file_exists,$@),$(call safe_shell_exec,mv -f $(call quote,$@) $(call quote,$(database_processed_file_bak))))\
 		$(call print_log,Processing package database...)\
 		$(call var,_local_db_files := $(sort $(call safe_wildcard,$(desc_pattern))))\
 		$(call var,_local_pkg_list :=)\
 		$(call var,_local_pkg_list_with_aliases :=)\
 		$(call var,_local_dupe_check_list :=)\
-		$(call var,_local_conflict_resolutions := $(if $(call file_exists,$(database_alternatives_file)),$(call safe_shell,cat '$(database_alternatives_file)')))\
+		$(call var,_local_conflict_resolutions := $(if $(call file_exists,$(database_alternatives_file)),$(call safe_shell,cat $(call quote,$(database_alternatives_file)))))\
 		$(call var,_local_non_overriden_canonical_pkg_names := $(filter-out $(foreach x,$(_local_conflict_resolutions),$(word 1,$(subst :, ,$x))),$(call strip_ver,$(call desc_file_to_name_ver,$(_local_db_files)))))\
 		$(call var,_local_bad_conflict_resolutions := $(_local_conflict_resolutions))\
 		$(call var,_local_had_any_conflicts :=)\
 		$(foreach x,$(_local_db_files),\
 			$(call var,_local_name_ver := $(call desc_file_to_name_ver,$x))\
 			$(call var,_local_name := $(call strip_ver,$(_local_name_ver)))\
-			$(call var,_local_file := $(call safe_shell,cat '$x'))\
+			$(call var,_local_file := $(call safe_shell,cat $(call quote,$x)))\
 			$(call var,_local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
 			$(call var,_local_aliases := $(filter-out $(_local_name),$(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file)))))\
 			$(call var,_local_aliases := $(foreach y,$(_local_aliases),$(if $(filter $y,$(_local_non_overriden_canonical_pkg_names)),\
@@ -301,7 +305,7 @@ $(database_processed_file): $(database_tmp_file)
 		)\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
-	$(call safe_shell_exec,mv -f '$(database_tmp_file)' '$(database_tmp_file_original)')
+	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))
 	$(if $(_local_bad_conflict_resolutions),\
 		$(call print_log,Warning: following entries in '$(database_alternatives_file)' are invalid:)\
 		$(foreach x,$(_local_bad_conflict_resolutions),$(call print_log,* $x))\
@@ -390,7 +394,7 @@ override database_query_available_with_aliases = $(call invoke_database_process,
 # Verifies a list of packages.
 # Causes an error on failure, expands to nothing.
 # Commented out because it doesn't respect package aliases.
-# override database_query_verify = $(call invoke_database_process,__database_verify __packages='$1')
+# override database_query_verify = $(call invoke_database_process,__database_verify __packages=$(call quote,$1))
 
 # Given a list of package names and/or aliases, returns their canonical names.
 override database_query_resolve_aliases = $(patsubst PKG@@%,%,$(call invoke_database_process,__database_nodeps __database_allow_aliases $(addprefix PKG@@,$1)))
@@ -401,7 +405,7 @@ override database_query_deps = $(sort $(patsubst PKG@@%,%,$(filter PKG@@%,$(call
 
 # $1 is a list of package names, without versions.
 # Returns the version of each package.
-override database_query_version = $(call invoke_database_process,__database_get_versions __packages='$1')
+override database_query_version = $(call invoke_database_process,__database_get_versions __packages=$(call quote,$1))
 
 # $1 is a list of package names, without versions.
 # Returns the same list, but with versions added.
@@ -411,11 +415,11 @@ override database_query_full_name = $(join $1,$(addprefix -,$(call database_quer
 # --- CACHE INTERNALS ---
 
 ifeq ($(call file_exists,$(CACHE_DIR)),)
-$(call safe_shell_exec,mkdir -p '$(CACHE_DIR)')
+$(call safe_shell_exec,mkdir -p $(call quote,$(CACHE_DIR)))
 endif
 
 ifeq ($(call file_exists,$(ROOT_DIR)),)
-$(call safe_shell_exec,mkdir -p '$(ROOT_DIR)')
+$(call safe_shell_exec,mkdir -p $(call quote,$(ROOT_DIR)))
 endif
 
 # A prefix for unfinished downloads.
@@ -432,14 +436,14 @@ override cache_download_file_if_missing = \
 			$(call print_log,Downloading '$(notdir $x)'...)\
 			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),,\
 				$(call var,_local_continue :=)\
-				$(call safe_shell_exec,mv -f '$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)' '$(CACHE_DIR)/$(notdir $x)')\
+				$(call safe_shell_exec,mv -f $(call quote,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)) $(call quote,$(CACHE_DIR)/$(notdir $x)))\
 			)\
 		))\
 		$(if $(_local_continue),$(error Unable to download the package. Try again with `--trace` to debug))\
 	)
 
 # Deletes unfinished downloads.
-override cache_purge_unfinished = $(foreach x,$(call safe_wildcard,$(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f '$x'))
+override cache_purge_unfinished = $(foreach x,$(call safe_wildcard,$(CACHE_DIR)/$(cache_unfinished_prefix)*),$(call safe_shell_exec,rm -f $(call quote,$x)))
 
 # --- CACHE INTERFACE ---
 
@@ -460,7 +464,7 @@ override cache_find_pkg_archive = $(call var,_local_file = $(firstword $(foreach
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.
 # Note `set -o pipefail`, without it we can't detect failure of lhs of the `|` shell operator.
 # Note `bash -c`. We can't use the default shell (`sh`, which is a symlink for `dash` on Ubuntu), because it doesn't support `pipefail`.
-override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o pipefail && tar -tf '$(call cache_find_pkg_archive,$x)' --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'"))
+override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o pipefail && tar -tf $(call quote,$(call cache_find_pkg_archive,$x)) --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'"))
 
 # Lists current packages sitting in the cache.
 override cache_list_current = \
@@ -482,7 +486,7 @@ override index_dir := index
 override index_pattern := $(index_dir)/*
 
 ifeq ($(call file_exists,$(index_dir)),)
-$(call safe_shell_exec,mkdir -p '$(index_dir)')
+$(call safe_shell_exec,mkdir -p $(call quote,$(index_dir)))
 endif
 
 # A prefix for broken packages.
@@ -529,7 +533,7 @@ override index_force_install = \
 		$(foreach x,$(_local_files),$(if $(call file_exists,$(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
 		$(foreach x,$(_local_files),$(file >>$(index_dir)/$(index_broken_prefix)$p,$x))\
 		$(call print_log,Extracting '$p'...)\
-		$(call safe_shell_exec,tar -C '$(ROOT_DIR)' -xf '$(call cache_find_pkg_archive,$p)' --exclude='.*')\
+		$(call safe_shell_exec,tar -C $(call quote,$(ROOT_DIR)) -xf $(call quote,$(call cache_find_pkg_archive,$p)) --exclude='.*')\
 		$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$p' '$(index_dir)/$p')\
 		$(call print_log,Installed '$p')\
 	)\
@@ -560,11 +564,11 @@ override index_list_pkg_files = $(sort $(foreach x,$1,$(if $(call file_exists,$(
 override request_list_file := requested_packages.txt
 
 ifeq ($(call file_exists,$(request_list_file)),)
-$(call safe_shell_exec,touch '$(request_list_file)')
+$(call safe_shell_exec,touch $(call quote,$(request_list_file)))
 endif
 
 # Writes a new list of requested packages (with versions) from $1.
-override pkg_set_request_list = $(call safe_shell_exec,echo >'$(request_list_file)' '$(sort $1)')
+override pkg_set_request_list = $(call safe_shell_exec,echo >$(call quote,$(request_list_file)) $(call quote,$(sort $1)))
 
 # $1 is a list of packages, without versions. Emits an error if any packages in $1 are in the requested list.
 override pkg_stop_if_in_request_list = \
@@ -579,7 +583,7 @@ override pkg_stop_if_not_in_request_list = \
 # --- PACKAGE MANAGEMENT INTERFACE ---
 
 # Returns the list of requested packages.
-override pkg_request_list = $(call safe_shell,cat '$(request_list_file)')
+override pkg_request_list = $(call safe_shell,cat $(call quote,$(request_list_file)))
 
 # Clears the request list.
 override pkg_request_list_reset = $(call pkg_set_request_list,)
@@ -710,7 +714,7 @@ $(call act, list-all-canonical \
 # Downloads a new database.
 $(call act, update \
 ,,Download a new database. The existing database will be backed up.)
-	$(call safe_shell_exec,$(MAKE) 1>&2 -B '$(database_processed_file)')
+	$(call safe_shell_exec,$(MAKE) 1>&2 -B $(call quote,$(database_processed_file)))
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 
@@ -736,16 +740,16 @@ $(call act, get-canonical-name \
 $(call act, clean-database \
 ,,Delete the package database$(comma) which contains the information about the repository.\
 $(lf)A new database will be downloaded next time it is needed.)
-	@rm -f '$(database_processed_file)' '$(database_processed_file_bak)' '$(database_tmp_file)' '$(database_tmp_file_original)'
-	@rm -rf '$(database_tmp_dir)'
+	@rm -f $(call quote,$(database_processed_file)) $(call quote,$(database_processed_file_bak)) $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original))
+	@rm -rf $(call quote,$(database_tmp_dir))
 
 # Downloads a new database.
 $(call act, reparse-database \
 ,,Reparse the database. Use this to update the database after\
 $(lf)changing `$(database_alternatives_file)`$(comma) otherwise it shouldn't be necessary.)
-	$(call safe_shell_exec,rm -f '$(database_processed_file)')
-	$(call safe_shell_exec,mv -f '$(database_tmp_file_original)' '$(database_tmp_file)' || true)
-	$(call safe_shell_exec,$(MAKE) 1>&2 '$(database_processed_file)')
+	$(call safe_shell_exec,rm -f $(call quote,$(database_processed_file)))
+	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_original)) $(call quote,$(database_tmp_file)) || true)
+	$(call safe_shell_exec,$(MAKE) 1>&2 $(call quote,$(database_processed_file)))
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 
@@ -784,8 +788,8 @@ $(call act, remove-all-packages \
 ,,Remove all packages.)
 	$(info Deleting files...)
 	$(call pkg_request_list_reset)
-	$(call safe_shell_exec,rm -rf '$(ROOT_DIR)'/*)
-	$(call safe_shell_exec,rm -rf '$(index_dir)'/*)
+	$(call safe_shell_exec,rm -rf $(call quote,$(ROOT_DIR))/*)
+	$(call safe_shell_exec,rm -rf $(call quote,$(index_dir))/*)
 	@true
 
 # Removes all packages.
@@ -793,7 +797,7 @@ $(call act, reinstall-all \
 ,,Reinstall all packages.)
 	$(info Deleting files...)
 	$(call safe_shell_exec,rm -rf '$(ROOT_DIR)/'*)
-	$(call safe_shell_exec,rm -rf '$(index_dir)'/*)
+	$(call safe_shell_exec,rm -rf $(call quote,$(index_dir))/*)
 	$(call pkg_apply_delta,$(pkg_compute_delta))
 	@true
 
@@ -808,7 +812,7 @@ $(call act, upgrade \
 $(call act, upgrade-keep-cache \
 ,,Update package database and upgrade all packages.\
 $(lf)Don't remove unused packages from the cache.)
-	$(call safe_shell_exec,$(MAKE) -B '$(database_processed_file)')
+	$(call safe_shell_exec,$(MAKE) -B $(call quote,$(database_processed_file)))
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	$(info Cleaning up...)
 	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
@@ -938,7 +942,7 @@ $(call act, cache-purge-unfinished \
 # Cleans the cache.
 $(call act, clean-cache \
 ,,Clean the entire archive cache.)
-	$(foreach x,$(call safe_wildcard,$(CACHE_DIR)/*),$(call safe_shell_exec,rm -f '$x'))
+	$(foreach x,$(call safe_wildcard,$(CACHE_DIR)/*),$(call safe_shell_exec,rm -f $(call quote,$x)))
 	@true
 
 # Accepts a list of packages, without versions. Downloads them, if they are not already in the cache.

@@ -1,3 +1,7 @@
+# A space-separated list of programs that must not have fakebin wrappers.
+QUASI_MSYS2_FAKEBIN_IGNORE ?= pkg-config
+
+
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
 # Same as `$(shell ...)`, but triggers a error on failure.
 override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
@@ -32,7 +36,7 @@ override DIR := $(installation_root)/$(DIR)
 PATTERN := root/mingw64/bin/*.exe
 override PATTERN := $(installation_root)/$(PATTERN)
 
-override wanted_list = $(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN)))
+override wanted_list = $(filter-out $(QUASI_MSYS2_FAKEBIN_IGNORE),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
 override current_list = $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*))
 override added_list = $(filter-out $(current_list),$(wanted_list))
 override removed_list = $(filter-out $(wanted_list),$(current_list))

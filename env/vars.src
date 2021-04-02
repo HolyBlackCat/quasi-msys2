@@ -55,10 +55,10 @@ __dummy_func() {
         # First, try the native Clang.
         echo "Trying native Clang..."
         if test -z "$WIN_CLANG_VER"; then
-            export "WIN_CLANG_VER=11"
-            echo '    Assuming your native Clang is suffixed with `'"-$WIN_CLANG_VER"'`.'
-            echo '    If it'"'"'s not the case, set `WIN_CLANG_VER` to the correct version,'
-            echo '    or to `NONE` if your Clang is not suffixed with a version.'
+            export "WIN_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort | tail -1 | sed 's/clang-//')"
+            test -z "$WIN_CLANG_VER" && export "WIN_CLANG_VER=NONE"
+            echo '  Guessed Clang version suffix: WIN_CLANG_VER = '"$WIN_CLANG_VER"
+            echo '  You can override it by setting it to a number or to `NONE` for no suffix.'
         fi
         if test "$WIN_CLANG_VER" = "NONE"; then
             # Those variables are used by our Clang wrapper in `env/wrappers`.

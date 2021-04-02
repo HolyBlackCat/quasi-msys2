@@ -297,11 +297,7 @@ $(database_processed_file): $(database_tmp_file)
 		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
 		$(file >>$@,override FULL_ALIAS_LIST := $(sort $(_local_pkg_list_with_aliases)))\
 		$(if $(_local_had_any_conflicts),\
-			$(call print_log,Note: if you don't like the alternatives selected by default$(comma) edit '$(database_alternatives_file)'.)\
-			$(call print_log,  To select an alternative$(comma) add following to the file: '<target>:<override>'$(comma))\
-			$(call print_log,  where '<target>' is what's being overriden (a package name, or its alias)$(comma))\
-			$(call print_log,  and '<override>' is the name of the package you want to use.)\
-			$(call print_log,  Then run `$(self) reparse-database` to apply the changes.)\
+			$(call print_log,Note: see `make help` for instructions on changing alternatives.)\
 		)\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
@@ -1004,7 +1000,34 @@ $(call act, cache-list-pkg-contents \
 	$(foreach x,$(call cache_list_pkg_files,$p),$(info $(subst <, ,$x)))
 	@true
 
-# NOTES
+# Help section: Package alternatives
+$(call act_section, PACKAGE ALTERNATIVES )
+
+$(if $(display_help),\
+	$(info Packages have unique names. They also have aliases, which are not unique.)\
+	$(info Several packages can have the same alias. The name of a package can serve)\
+	$(info as an alias for other packages.)\
+	$(info The choice of alternatives happens each time a new package database is downloaded.)\
+	$(info During this process, each alias is disambiguated to refer to a single package.)\
+	$(info By default, aliases conflicting with other packages' names are discarded,)\
+	$(info giving priority to the names. Otherwise, the alias conflicts are resolved)\
+	$(info by lexicographically comparing package names, with 'lesser' packages)\
+	$(info getting priority.)\
+	$(info The default conflict resolution can be overriden by creating a file)\
+	$(info named `alternatives.txt` in the installation directory. After any change to)\
+	$(info the file, you must run `$(self) reparse-database` to apply the changes.)\
+	$(info Add one entry per line, in the following format:)\
+	$(info $(space)   target:override)\
+	$(info Where `target` is an ambiguous alias (or name), and `override` is one of)\
+	$(info the packages having this alias (or name), which this it should refer to.)\
+	$(info The `target` can match the `override`, but since this is the default behavior,)\
+	$(info this merely removes the notice about the ambiguity when updating the database.)\
+	$(info If the specified settings cause a package to give up its name, it becomes)\
+	$(info inaccessible.)\
+	$(info )\
+	)
+
+# Help section: Notes
 $(call act_section, NOTES )
 
 $(if $(display_help),\

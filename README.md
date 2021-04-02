@@ -183,6 +183,8 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
 * `requested_packages.txt` — A list of installed packages, not including the automatically installed dependencies.
 
+* `alternatives.txt` — Exists only if you created it manually. A configuration file for package alternatives, see `make help` for details.
+
 * `msys2_pacmake_base_dir` — An empty file marking the installation directory. The package manager refuses to operate if it's not in the working directory, to make sure you don't accidentally create a new installation.
 
 * (temporary) `database.db` — The database downloaded from the repository, in the process of being converted to our custom format.

@@ -318,12 +318,17 @@ $(database_processed_file): $(database_tmp_file)
 ifneq ($(filter __database_%,$(MAKECMDGOALS)),)
 override __deps := $(if $(filter __database_nodeps,$(MAKECMDGOALS)),,y)
 include $(database_processed_file)
-# Also validate all package names specified in the command line
+# Also validate all package names specified in the command line.
+# Note that we don't perform validation if the database file is missing. In that case it
+# will be generated soon, and then Make will be restarted, and then we'll perform the checks.
+ifneq ($(call safe_wildcard,$(database_processed_file)),)
 ifneq ($(filter __database_allow_aliases,$(MAKECMDGOALS)),)
 $(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(filter $x,$(FULL_ALIAS_LIST)),,$(error Unknown package or package alias: '$x')))
 else
 $(foreach x,$(patsubst PKG@@%,%,$(filter PKG@@%,$(MAKECMDGOALS))),$(if $(filter $x,$(FULL_PACKAGE_LIST)),,$(error Unknown package: '$x')))
 endif
+endif
+
 endif
 
 # Internal database interface:

@@ -61,18 +61,17 @@ __dummy_func() {
             echo '  You can override it by setting it to a number or to `NONE` for no suffix.'
         fi
         if test "$WIN_CLANG_VER" = "NONE"; then
-            # Those variables are used by our Clang wrapper in `env/wrappers`.
-            export "WIN_NATIVE_CLANG_CC=clang"
-            export "WIN_NATIVE_CLANG_CXX=clang++"
+            local clang_ver_suffix=""
         else
-            # Those variables are used by our Clang wrapper in `env/wrappers`.
-            export "WIN_NATIVE_CLANG_CC=clang-$WIN_CLANG_VER"
-            export "WIN_NATIVE_CLANG_CXX=clang++-$WIN_CLANG_VER"
+            local clang_ver_suffix="-$WIN_CLANG_VER"
         fi
+        # Those variables are used by our Clang wrapper in `env/wrappers`.
+        export "WIN_NATIVE_CLANG_CC=clang$clang_ver_suffix"
+        export "WIN_NATIVE_CLANG_CXX=clang++$clang_ver_suffix"
 
         if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" >/dev/null; then
             # Successfully found a native Clang.
-            echo "Success! Will use wrappers around the native Clang."
+            echo "Success! Will use wrappers for the native Clang."
             export "CC=win-clang"
             export "CXX=win-clang++"
 

@@ -1,5 +1,7 @@
 # A space-separated list of programs that must not have fakebin wrappers.
-QUASI_MSYS2_FAKEBIN_IGNORE ?= pkg-config
+# Most are blacklisted because native equivalents work equally well.
+# `pkg-config` is blacklisted because it outputs WINE-style paths.
+QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar ld ld.bfd pkg-config strip
 
 
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
@@ -36,7 +38,7 @@ override DIR := $(installation_root)/$(DIR)
 PATTERN := root/mingw64/bin/*.exe
 override PATTERN := $(installation_root)/$(PATTERN)
 
-override wanted_list = $(filter-out $(QUASI_MSYS2_FAKEBIN_IGNORE),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
+override wanted_list = $(filter-out $(QUASI_MSYS2_FAKEBIN_BLACKLIST),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
 override current_list = $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*))
 override added_list = $(filter-out $(current_list),$(wanted_list))
 override removed_list = $(filter-out $(wanted_list),$(current_list))

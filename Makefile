@@ -28,7 +28,7 @@ CALL_ON_PKG_CHANGE :=
 
 
 # --- VERSION ---
-override version := 1.3.1
+override version := 1.3.2
 
 
 # --- GENERIC UTILITIES ---

@@ -13,6 +13,13 @@ __dummy_func() {
     # We use `tput` instead of hardcoding the codes because it's supposedly more portable.
     local warn="$(tput setaf 3)[$(tput setaf 1)WARNING$(tput setaf 3)]$(tput sgr0) "
 
+    # Load all variables starting with `MSYSTEM` from the primary makefile.
+    export -- $(make -C "$(dirname "$BASH_SOURCE")"/.. -pq | grep '^MSYSTEM' | sed 's/\s*:=\s*/=/g')
+    if test -z "$MSYSTEM" -o -z "$MSYSTEM_CARCH" -o -z "$MSYSTEM_CHOST" -o -z "$MSYSTEM_PREFIX"; then
+        echo "$warn"'Failed to load the config variables from the primary makefile.'
+        false
+    fi
+
     # Helper variable pointing to our installation directory.
     export QUASI_MSYS2_ROOT="$(realpath "$(dirname "$BASH_SOURCE")"/..)"
     # Make sure the resulting variable is not empty due to some error. If it is, abort.
@@ -21,28 +28,19 @@ __dummy_func() {
     echo "QUASI_MSYS2_ROOT = $QUASI_MSYS2_ROOT"
     echo ''
 
-
-    # This MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
-    if test -z "$MSYSTEM_PREFIX"; then
-        # `MSYSTEM_PREFIX` not set, determine automatically.
-        if test "$(readlink -m /mingw64)" = "$QUASI_MSYS2_ROOT/root/mingw64"; then
-            echo 'Found symlink `/mingw64` -> `'"$QUASI_MSYS2_ROOT/root/mingw64"'`, will use it.'
-            export "MSYSTEM_PREFIX=/mingw64"
-        else
-            echo "$warn"'Didn'"'"'t find symlink `/mingw64` -> `'"$QUASI_MSYS2_ROOT/root/mingw64"'`.'
-            echo '`pkg-config` might need `--define-prefix` to function correctly.'
-            echo 'Consider creating the symlink, as it can improve compatibility in some cases.'
-            echo 'Use following command, then restart the shell and re-run this script.'
-            echo '    sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root/mingw64"'" /mingw64'
-            export "MSYSTEM_PREFIX=$QUASI_MSYS2_ROOT/root/mingw64"
-        fi
+    # `MSYSTEM_PREFIX` is an MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
+    # We load its default value from the primary makefile, but we optionally prefix it with the proper absolute path, unless it already exists as a symlink.
+    if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"; then
+        echo 'Found symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`, will use it.'
+    else
+        echo "$warn"'Didn'"'"'t find symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`.'
+        echo '`pkg-config` might need `--define-prefix` to function correctly.'
+        echo 'Consider creating the symlink, as it can improve compatibility in some cases.'
+        echo 'Use following command, then restart the shell and re-run this script.'
+        echo '    sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'" '"$MSYSTEM_PREFIX"
+        export "MSYSTEM_PREFIX=$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"
     fi
     echo "MSYSTEM_PREFIX = $MSYSTEM_PREFIX"
-
-    # This MSYS2-style variable specifies the target triplet.
-    test -z "$MINGW_CHOST" && export "MINGW_CHOST=x86_64-w64-mingw32"
-    echo "MINGW_CHOST = $MINGW_CHOST"
-
 
     if test "$MINGW_CC" || test "$MINGW_CXX"; then
         # A custom compiler is specified, use it.
@@ -91,11 +89,12 @@ __dummy_func() {
             echo "WIN_NATIVE_CLANG_CXX = $WIN_NATIVE_CLANG_CXX"
 
             # This custom variable specifies the flags for our Clang wrapper in `env/wrappers`.
-            # Note that the target is different from the value of `MINGW_CHOST`. That's slightly weird but that's what MSYS2 does, so...
+            # Note that `clang --version` will report a slightly different target than what we set here. This is normal,
+            # and specifying that target directly would also work.
             # `--sysroot` tells Clang where to look for a GCC installation.
             # `-pthread` tells is to link winpthread, since it doesn't happen automatically and some CMake scripts expect it.
             # `-femulated-tls` is necessary when using libstdc++ atomics with Clang.
-            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=x86_64-w64-windows-gnu --sysroot=$MSYSTEM_PREFIX -pthread -femulated-tls"
+            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -pthread -femulated-tls"
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.
@@ -193,15 +192,16 @@ __dummy_func() {
     echo "PATH = $PATH"
     echo 'Backed up original path to `WIN_ORIGINAL_PATH`.'
 
-    # We don't use the following variables, but sill define them for some extra compatibility with MSYS2.
+    # We don't use the following variables, but still define them for some extra compatibility with MSYS2.
     # The list of variables was obtained by running `printenv` on MSYS2 and manually sorting through the list.
-    # Note that some useful MSYS2-style variables (that are actually useful) are defined above and not there, comments near them indicate that.
+    # Note that some useful MSYS2-style variables (that are actually useful) are defined above and not there.
+    # Note that some of the variables we print here were obtained from the config in the primary makefile, at the very beginning of this script.
     echo ''
     echo 'Extra MSYS2 mimicry:'
-    export "OS=Windows_NT"; echo -n "OS = $OS; "
-    export "MSYSTEM_CARCH=x86_64"; echo -n "MSYSTEM_CARCH = $MSYSTEM_CARCH; "
-    export "MSYSTEM_CHOST=$MINGW_CHOST"; echo -n "MSYSTEM_CHOST = $MSYSTEM_CHOST; "
-    export "MSYSTEM=MINGW64"; echo -n "MSYSTEM = $MSYSTEM; "
+    echo -n "MSYSTEM=$MSYSTEM; "
+    export "OS=Windows_NT"; echo -n "OS=$OS; "
+    echo -n "MSYSTEM_CARCH=$MSYSTEM_CARCH; "
+    export "MINGW_CHOST=$MSYSTEM_CHOST"; echo -n "MSYSTEM_CHOST=MINGW_CHOST=$MSYSTEM_CHOST; "
     # Finally, copy the MSYS2 prompt.
     export 'PS1=\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[35m\]$MSYSTEM\[\e[0m\] \[\e[33m\]\w\[\e[0m\]\n\[\e[1m\]#\[\e[0m\] '; echo "PS1 = ..."
 }

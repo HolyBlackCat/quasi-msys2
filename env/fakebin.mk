@@ -18,6 +18,10 @@ endif
 # Same as `safe_shell`, but discards the output and expands to nothing.
 override safe_shell_exec = $(call,$(call safe_shell,$1))
 
+# Encloses $1 in single quotes, with proper escaping for the shell.
+# If you makefile uses single quotes everywhere, a decent way to transition is to manually search and replace `'(\$(?:.|\(.*?\)))'` with `$(call quote,$1)`.
+override quote = '$(subst ','"'"',$1)'
+
 
 QUIET :=
 $(if $(QUIET),,\
@@ -35,7 +39,12 @@ $(if $(wildcard $(installation_root)/msys2_pacmake_base_dir),,$(error Looks like
 DIR := env/fake_bin
 override DIR := $(installation_root)/$(DIR)
 
-PATTERN := root/mingw64/bin/*.exe
+# This should give us the value of `MSYSTEM_PREFIX` from the main makefile.
+MSYSTEM_PREFIX :=
+$(eval $(call safe_shell,make -C $(call quote,$(installation_root)) -pq | grep '^MSYSTEM_PREFIX\b'))
+$(if $(MSYSTEM_PREFIX),,$(error Can't obtain the value of `MSYSTEM_PREFIX`.))
+
+PATTERN := root$(MSYSTEM_PREFIX)/bin/*.exe
 override PATTERN := $(installation_root)/$(PATTERN)
 
 override wanted_list = $(filter-out $(QUASI_MSYS2_FAKEBIN_BLACKLIST),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))

@@ -1,17 +1,9 @@
 # --- CONFIG ---
 
-# URL of the repository database, such as `https://repo.msys2.org/mingw/x86_64/mingw64.db`.
-REPO_DB_URL := https://repo.msys2.org/mingw/x86_64/mingw64.db
-
 # Suffix of the package archives, such as `-any.pkg.tar.zst`.
 # Can be a space-separated lists of such suffixes, those will be tried in the specified order when downloading packages.
 # At some point pacman switched from `.tar.zst` to `.tar.xz`, but MSYS2 repos still have `.tar.xz` around for old packages, so we have to support both.
 REPO_PACKAGE_ARCHIVE_SUFFIXES := -any.pkg.tar.zst -any.pkg.tar.xz
-
-# A common prefix for all packages.
-# You don't have to set this variable, as it's only used for convenience,
-# to avoid typing long package names. (See notes at the end of `make help` for details.)
-REPO_PACKAGE_COMMON_PREFIX := mingw-w64-x86_64-
 
 # Extract packages here.
 ROOT_DIR := root
@@ -26,9 +18,48 @@ KEEP_UNPROCESSED_DATABASE := 0
 # The contents of this variable are called as a shell command after any changes to the packages are made.
 CALL_ON_PKG_CHANGE :=
 
+# --- REPOSITORY SETTINGS ---
+
+# The `MSYSTEM` variable determines the MSYS2 flavor. The value is loaded from a file.
+# It's recommended to change this file in a clean repo, before downloading any packages. Or at least by running make `remove-all-packages` first.
+MSYSTEM := $(file <msystem.txt)
+# Default to MSYSTEM=MINGW64 if the file is missing.
+$(if $(MSYSTEM),,$(eval MSYSTEM := MINGW64))
+
+ifeq ($(MSYSTEM),MINGW64)
+# URL of the repository database.
+REPO_DB_URL := https://repo.msys2.org/mingw/x86_64/mingw64.db
+# A common prefix for all packages.
+# You don't have to set this variable, as it's only used for convenience, to avoid typing long package names. (See notes at the end of `make help` for details.)
+REPO_PACKAGE_COMMON_PREFIX := mingw-w64-x86_64-
+# Extra stuff needed for the environment setup scripts in `env/`. The package manager itself doesn't care about those.
+MSYSTEM_PREFIX := /mingw64# The top-level directory of all packages.
+MSYSTEM_CARCH := x86_64
+MSYSTEM_CHOST := x86_64-w64-mingw32
+else ifeq ($(MSYSTEM),MINGW32)
+REPO_DB_URL := https://repo.msys2.org/mingw/i686/mingw32.db
+REPO_PACKAGE_COMMON_PREFIX := mingw-w64-i686-
+MSYSTEM_PREFIX := /mingw32
+MSYSTEM_CARCH := i686
+MSYSTEM_CHOST := i686-w64-mingw32
+else ifeq ($(MSYSTEM),UCRT64)
+REPO_DB_URL := http://repo.msys2.org/mingw/ucrt64/ucrt64.db
+REPO_PACKAGE_COMMON_PREFIX := mingw-w64-ucrt-x86_64-
+MSYSTEM_PREFIX := /ucrt64
+MSYSTEM_CARCH := x86_64
+MSYSTEM_CHOST := x86_64-w64-mingw32
+else
+$(error Unknown MSYSTEM: $(MSYSTEM))
+endif
+
+# To add more `MSYSTEM`s:
+# * Find the appropriate repository at: http://repo.msys2.org/mingw/
+# * Copy variables from: https://github.com/msys2/MSYS2-packages/blob/master/filesystem/msystem
+
+
 
 # --- VERSION ---
-override version := 1.3.2
+override version := 1.4.0
 
 
 # --- GENERIC UTILITIES ---
@@ -1024,6 +1055,20 @@ $(if $(display_help),\
 	$(info this merely removes the notice about the ambiguity when updating the database.)\
 	$(info If the specified settings cause a package to give up its name, it becomes)\
 	$(info inaccessible.)\
+	$(info )\
+	)
+
+# Help section: Package alternatives
+$(call act_section, PLATFORMS )
+
+$(if $(display_help),\
+	$(info MSYS2 supports several different target platforms, each with its own set of packages.)\
+	$(info To select a platform, create a file called `msystem.txt` and put)\
+	$(info one of the following into it:)\
+	$(info * `MINGW64` for Windows x64 (default))\
+	$(info * `MINGW32` for Windows x32)\
+	$(info * `UCRT64` for Windows x64 with ucrtbase.dll)\
+	$(info For the exact list of platforms, see the beginning of the `Makefile`.)\
 	$(info )\
 	)
 

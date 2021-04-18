@@ -5,6 +5,10 @@ $(if $(filter-out 0 1,$(words $(MAKECMDGOALS))),$(error More than one action spe
 
 # Some constants
 override comma := ,
+override define lf :=
+$(strip)
+$(strip)
+endef
 
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
 # Same as `$(shell ...)`, but triggers a error on failure.
@@ -33,22 +37,27 @@ override confirm =
 override explain =
 endif
 
+# Only matters if `QUIET=1`. Set to non-empty after at least one explanation of what we're doing was given.
+override quiet_explained_once :=
 
 # Same as `safe_shell_exec`, but automatically appends `sudo` to the command, and asks for confirmation before running it.
 # Also redirects `stdout` to `stderr` so you can see its output.
 override sudo_exec = \
-	$(call explain,Will run following command$(comma) press Enter to confirm or Ctrl+C to abort.)\
-	$(if $(QUIET),$(info Running `sudo $1`.),$(call confirm,$$ sudo $1))\
-	$(call safe_shell_exec,sudo $1 1>&2)\
-	$(info Success.)\
-	$(eval override at_least_one_sudo_run := y)
+$(call explain,Will run following command$(comma) press Enter to confirm or Ctrl+C to abort.)\
+$(if $(QUIET),$(if $(quiet_explained_once),,$(eval override quiet_explained_once := 1)\
+$(info Trying to configure your kernel to transparently run Windows executables using Wine.\
+$(lf)All changes will be undone on a reboot. Ctrl+C to skip.))\
+$(info Running `sudo $1`.),$(call confirm,$$ sudo $1))\
+$(call safe_shell_exec,sudo $1 1>&2)\
+$(info Success.)\
+$(eval override at_least_one_sudo_run := y)
 # If `sudo_exec` was run at least one, this function makes sudo forget the password.
 override forget_sudo_passowrd = $(if $(at_least_one_sudo_run),$(info Running `sudo -k` to forget the sudo password.)$(call safe_shell_exec,sudo -k))
 # This variable is not null if we used `sudo_exec` at least once.
 override at_least_one_sudo_run :=
 
-# If not in quiet mode, calling this will make sudo ask you for the password next time you use it.
-override reset_sudo = $(if $(QUIET),,$(call safe_shell_exec,sudo -k))
+# Calling this will make sudo ask you for the password next time you use it.
+override reset_sudo = $(call safe_shell_exec,sudo -k)
 
 
 # This enables the whole `binfmt_misc` and registers the right executable format.

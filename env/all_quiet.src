@@ -9,7 +9,7 @@ __dummy_func() {
     test -z "$env_path" && return 1
 
     echo -e '\n--- binfmt.mk'
-    make -f "$env_path/binfmt.mk" QUIET=1 || return 1
+    make -f "$env_path/binfmt.mk" QUIET=1
 
     echo -e '\n--- fakebin.mk'
     make -f "$env_path/fakebin.mk" QUIET=1 || return 1

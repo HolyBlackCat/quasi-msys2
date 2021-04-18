@@ -46,7 +46,7 @@ override sudo_exec = \
 $(call explain,Will run following command$(comma) press Enter to confirm or Ctrl+C to abort.)\
 $(if $(QUIET),$(if $(quiet_explained_once),,$(eval override quiet_explained_once := 1)\
 $(info Trying to configure your kernel to transparently run Windows executables using Wine.\
-$(lf)All changes will be undone on a reboot. Ctrl+C to skip.))\
+$(lf)All changes will be undone on a reboot. Ctrl+D to skip.))\
 $(info Running `sudo $1`.),$(call confirm,$$ sudo $1))\
 $(call safe_shell_exec,sudo $1 1>&2)\
 $(info Success.)\

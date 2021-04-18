@@ -9,7 +9,8 @@ __dummy_func() {
     test -z "$env_path" && return 1
 
     echo -e '\n--- binfmt.mk'
-    make -f "$env_path/binfmt.mk" QUIET=1
+    # The `(...)` and `trap exit 2` sorcery is to handle Ctrl+C correctly. Not sure why it doesn't work otherwise.
+    (cd "$env_path" && bash -c "trap exit 2 && make -f binfmt.mk QUIET=1")
 
     echo -e '\n--- fakebin.mk'
     make -f "$env_path/fakebin.mk" QUIET=1 || return 1

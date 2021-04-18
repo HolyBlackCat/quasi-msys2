@@ -836,8 +836,26 @@ $(call act, reinstall-all \
 # Updates the database, upgrades packages, and fixes stuff.
 $(call act, upgrade \
 ,,Update package database and upgrade all packages.)
-	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
-	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
+	$(call,  Get database modification time.)
+	$(call,  Note that here we use `shell` instead of `safe_shell`, since we don't want to fail if the file is missing.)
+	$(call var,_local_db_orig_time := $(shell stat $(call quote,$(database_processed_file)) --printf=%Y 2>/dev/null))
+	$(call safe_shell_exec,$(MAKE) -B $(call quote,$(database_processed_file)))
+	$(call,  If the database was changed according to modification time, clean the cache before applying delta)
+	$(call,  We do it here rather than after applying delta to allow rollbacks without extra downloads.)
+	$(if $(filter-out $(_local_db_orig_time),$(shell stat $(call quote,$(database_processed_file)) --printf=%Y 2>/dev/null)),\
+		$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)\
+	)
+	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))\
+	$(info Cleaning up...)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
+	@true
+
+# Rolls back the last upgrade.
+$(call act, rollback \
+,,Undo the last `$(self) upgrade`.)
+	$(if $(call file_exists,$(database_processed_file_bak)),,$(error No database backup to roll back to))
+	$(call safe_shell_exec,mv -f $(call quote,$(database_processed_file_bak)) $(call quote,$(database_processed_file)))
+	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 
 # Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
@@ -850,7 +868,7 @@ $(lf)Don't remove unused packages from the cache.)
 	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
 	@true
 
-# Updates the database, upgrades packages, and fixes stuff. Doesn't remove old archives from the cache.
+# Updates the database, upgrades packages, and fixes stuff. Cleans the cache.
 $(call act, upgrade-clean-cache \
 ,,Update package database and upgrade all packages.\
 $(lf)Clean the cache.)

@@ -316,11 +316,11 @@ $(database_processed_file): $(database_tmp_file)
 			$(call var,_local_dupe_check_list += $(addprefix $(_local_name)|,$(_local_lhs)))\
 			$(if $(filter-out $(_local_banned_names),$(_local_name)),\
 				$(call var,_local_bad_conflict_resolutions := $(filter-out $(addsuffix :$(_local_name),$(_local_lhs)),$(_local_bad_conflict_resolutions)))\
-    			$(call code_pkg_version_var,$@,$(_local_name_ver))\
-    			$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
+				$(call code_pkg_version_var,$@,$(_local_name_ver))\
+				$(call code_pkg_target,$@,$(_local_lhs),$(_local_deps))\
 				$(file >>$@,)\
-    			$(call var,_local_pkg_list += $(_local_name))\
-    			$(call var,_local_pkg_list_with_aliases += $(_local_lhs))\
+				$(call var,_local_pkg_list += $(_local_name))\
+				$(call var,_local_pkg_list_with_aliases += $(_local_lhs))\
 			,\
 				$(call print_log,Note: package '$(_local_name)' is inaccessible because of the selected alternatives.)\
 			)\

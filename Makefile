@@ -59,7 +59,7 @@ endif
 
 
 # --- VERSION ---
-override version := 1.4.0
+override version := 1.4.1
 
 
 # --- GENERIC UTILITIES ---

@@ -30,14 +30,19 @@ __dummy_func() {
 
     # `MSYSTEM_PREFIX` is an MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
     # We load its default value from the primary makefile, but we optionally prefix it with the proper absolute path, unless it already exists as a symlink.
-    if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"; then
+    if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX" ||
+        {
+            # Suggest to create the link automatically.
+            echo 'Trying to create a symlink from `'"$MSYSTEM_PREFIX"'` to the installation directory. Ctrl+C to skip.';
+            echo 'It improves compatibility, and without it `pkg-config` might need `--define-prefix` to function correctly.'
+            echo 'Running `sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'" '"$MSYSTEM_PREFIX"'`.'
+            sudo -k;
+            sudo ln -nfs "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX" "$MSYSTEM_PREFIX" && sudo -k
+        }
+    then
         echo 'Found symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`, will use it.'
     else
         echo "$warn"'Didn'"'"'t find symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`.'
-        echo '`pkg-config` might need `--define-prefix` to function correctly.'
-        echo 'Consider creating the symlink, as it can improve compatibility in some cases.'
-        echo 'Use following command, then restart the shell and re-run this script.'
-        echo '    sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'" '"$MSYSTEM_PREFIX"
         export "MSYSTEM_PREFIX=$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"
     fi
     echo "MSYSTEM_PREFIX = $MSYSTEM_PREFIX"

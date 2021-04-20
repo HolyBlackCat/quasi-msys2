@@ -59,7 +59,7 @@ endif
 
 
 # --- VERSION ---
-override version := 1.4.1
+override version := 1.4.2
 
 
 # --- GENERIC UTILITIES ---
@@ -855,6 +855,7 @@ $(call act, rollback \
 ,,Undo the last `$(self) upgrade`.)
 	$(if $(call file_exists,$(database_processed_file_bak)),,$(error No database backup to roll back to))
 	$(call safe_shell_exec,mv -f $(call quote,$(database_processed_file_bak)) $(call quote,$(database_processed_file)))
+	$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_original)))
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 

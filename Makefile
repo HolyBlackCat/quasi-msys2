@@ -836,18 +836,8 @@ $(call act, reinstall-all \
 # Updates the database, upgrades packages, and fixes stuff.
 $(call act, upgrade \
 ,,Update package database and upgrade all packages.)
-	$(call,  Get database modification time.)
-	$(call,  Note that here we use `shell` instead of `safe_shell`, since we don't want to fail if the file is missing.)
-	$(call var,_local_db_orig_time := $(shell stat $(call quote,$(database_processed_file)) --printf=%Y 2>/dev/null))
-	$(call safe_shell_exec,$(MAKE) -B $(call quote,$(database_processed_file)))
-	$(call,  If the database was changed according to modification time, clean the cache before applying delta)
-	$(call,  We do it here rather than after applying delta to allow rollbacks without extra downloads.)
-	$(if $(filter-out $(_local_db_orig_time),$(shell stat $(call quote,$(database_processed_file)) --printf=%Y 2>/dev/null)),\
-		$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)\
-	)
-	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))\
-	$(info Cleaning up...)
-	$(call safe_shell_exec, $(MAKE) 1>&2 cache-purge-unfinished)
+	$(call safe_shell_exec, $(MAKE) 1>&2 upgrade-keep-cache)
+	$(call safe_shell_exec, $(MAKE) 1>&2 cache-remove-unused)
 	@true
 
 # Rolls back the last upgrade.

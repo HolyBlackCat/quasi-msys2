@@ -1,7 +1,7 @@
 # A space-separated list of programs that must not have fakebin wrappers.
 # Most are blacklisted because native equivalents work equally well.
 # `pkg-config` is blacklisted because it outputs WINE-style paths.
-QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar ld ld.bfd pkg-config strip
+QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar ld ld.bfd objdump pkg-config strip
 
 
 ifeq ($(filter --trace,$(MAKEFLAGS)),)

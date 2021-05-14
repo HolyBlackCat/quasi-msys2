@@ -48,6 +48,18 @@ REPO_PACKAGE_COMMON_PREFIX := mingw-w64-ucrt-x86_64-
 MSYSTEM_PREFIX := /ucrt64
 MSYSTEM_CARCH := x86_64
 MSYSTEM_CHOST := x86_64-w64-mingw32
+else ifeq ($(MSYSTEM),CLANG64)
+REPO_DB_URL := http://repo.msys2.org/mingw/clang64/clang64.db
+REPO_PACKAGE_COMMON_PREFIX := mingw-w64-clang-x86_64-
+MSYSTEM_PREFIX := /clang64
+MSYSTEM_CARCH := x86_64
+MSYSTEM_CHOST := x86_64-w64-mingw32
+else ifeq ($(MSYSTEM),CLANG32)
+REPO_DB_URL := http://repo.msys2.org/mingw/clang32/clang32.db
+REPO_PACKAGE_COMMON_PREFIX := mingw-w64-clang-i686-
+MSYSTEM_PREFIX := /clang32
+MSYSTEM_CARCH := i686
+MSYSTEM_CHOST := i686-w64-mingw32
 else
 $(error Unknown MSYSTEM: $(MSYSTEM))
 endif

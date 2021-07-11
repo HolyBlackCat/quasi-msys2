@@ -71,7 +71,7 @@ endif
 
 
 # --- VERSION ---
-override version := 1.4.2
+override version := 1.4.3
 
 
 # --- GENERIC UTILITIES ---
@@ -476,7 +476,7 @@ override cache_download_file_if_missing = \
 		$(call var,_local_continue := y)\
 		$(call var,_local_first := y)\
 		$(foreach x,$1,$(if $(_local_continue),\
-			$(if $(_local_first),$(call var,_local_first :=),$(call print_log,Failed, trying different suffix.))\
+			$(if $(_local_first),$(call var,_local_first :=),$(call print_log,Failed$(comma) trying different suffix.))\
 			$(call print_log,Downloading '$(notdir $x)'...)\
 			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),,\
 				$(call var,_local_continue :=)\

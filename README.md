@@ -63,6 +63,14 @@ In such a sub-shell, you can do following:
 
     Use the `win-ldd` wrapper. It processes the output of `ntldd.exe` (which needs to be installed with `make install _ntldd-git`), replacing windows paths paths with proper linux paths.
 
+## More stuff
+
+  * How do I add a "menu entry"/"launcher icon"/... for Quasi-MSYS2 shell?
+    * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
+
+  * My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
+    * Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.
+
 ## What exactly are we doing with the kernel
 
 When you run `env/shell.sh`, it creates a new Bash shell and does `source env/all_quiet.src` in it, which, in turn, goes over all other scripts in `env/` and runs them one by one (`*.mk` are run with `make -f ...`, `*.src` are run with `source ...`).

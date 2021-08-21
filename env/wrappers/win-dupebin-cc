@@ -1,0 +1,27 @@
+# See `env/duplicate_exe_outputs.src` for explanation.
+
+${WIN_DUPEBIN_CC-$CC} "$@" || exit $?
+
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  path=
+
+  case $key in
+    -o)
+      path="$2"
+      [[ $path != *.* ]] && path="$path.exe"
+      [[ $path == *.exe ]] && cp -f "$path" "${path%.exe}"
+      shift
+      shift
+      ;;
+    -s)
+      path=x
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+[[ ! $path ]] && cp -f "a.exe" "a.out"

@@ -2,21 +2,17 @@
 
 ${WIN_DUPEBIN_CC-$CC} "$@" || exit $?
 
-while [[ $# -gt 0 ]]; do
-  key="$1"
-  path=
+path=
 
-  case $key in
+while [[ $# -gt 0 ]]; do
+  case $1 in
     -o)
       path="$2"
-      [[ $path != *.* ]] && path="$path.exe"
-      [[ $path == *.exe ]] && cp -f "$path" "${path%.exe}"
       shift
       shift
       ;;
-    -s)
-      path=x
-      shift
+    -c|-shared|--shared|-fsyntax-only|-E|-S)
+      exit
       ;;
     *)
       shift
@@ -24,4 +20,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ ! $path ]] && cp -f "a.exe" "a.out"
+[[ $path != *.* ]] && path="$path.exe"
+
+if [[ $path == *.exe ]]; then
+    cp -f "$path" "${path%.exe}"
+else
+    [[ ! $path ]] && cp -f "a.exe" "a.out"
+fi

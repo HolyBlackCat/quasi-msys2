@@ -1,1 +1,2 @@
+#!/bin/sh
 wineconsole --backend=curses gdb.exe "$@"

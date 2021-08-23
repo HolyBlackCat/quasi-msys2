@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # See `env/duplicate_exe_outputs.src` for explanation.
 
 ${WIN_DUPEBIN_CXX-$CXX} "$@" || exit $?

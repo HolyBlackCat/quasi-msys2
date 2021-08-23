@@ -4,6 +4,12 @@
 QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar ld ld.bfd objdump pkg-config strip
 
 
+# Some constants.
+override define lf :=
+$(strip)
+$(strip)
+endef
+
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
 # Same as `$(shell ...)`, but triggers a error on failure.
 override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
@@ -55,7 +61,7 @@ override removed_list = $(filter-out $(wanted_list),$(current_list))
 .PHONY: update
 update:
 	$(call safe_shell_exec,mkdir -p '$(DIR)')
-	$(foreach x,$(added_list),$(file >$(DIR)/$x,wine $x "$$@")$(call safe_shell_exec,chmod +x '$(DIR)/$x'))
+	$(foreach x,$(added_list),$(file >$(DIR)/$x,#!/bin/sh$(lf)wine $x "$$@")$(call safe_shell_exec,chmod +x '$(DIR)/$x'))
 	$(foreach x,$(removed_list),$(call safe_shell_exec,rm -f '$(DIR)/$x'))
 	$(if $(added_list)$(removed_list),\
 		$(info Added $(words $(added_list)) wrappers, removed $(words $(removed_list)) wrappers.)\

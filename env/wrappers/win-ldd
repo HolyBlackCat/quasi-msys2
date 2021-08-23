@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # We pipe the output of `ntldd` through sed to replace any windows-style paths with linux-style ones.
 # Sed generates a sequence of bash commands, which are then piped to bash.
 # 1: To escape ' symbols, replace then with '"'"'.

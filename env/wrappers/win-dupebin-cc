@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # See `env/duplicate_exe_outputs.src` for explanation.
 
 ${WIN_DUPEBIN_CC-$CC} "$@" || exit $?
@@ -20,10 +22,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ $path != *.* ]] && path="$path.exe"
+if [[ ! $path ]]; then
+    cp -f "a.exe" "a.out"
+    exit
+fi
 
+[[ $path != *.* ]] && path="$path.exe"
 if [[ $path == *.exe ]]; then
     cp -f "$path" "${path%.exe}"
-else
-    [[ ! $path ]] && cp -f "a.exe" "a.out"
 fi

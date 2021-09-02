@@ -2,16 +2,13 @@
 
 **What is this?**
 
-A small Linux-to-Windows cross-compilation environment.
+A small Linux-to-Windows cross-compilation environment. The goal is to mimic MSYS2, but on Linux.
 
-The goal is to mimic MSYS2, but on Linux (because it doesn't work under Wine).
-
-Features:
-
-* A tiny custom package manager, working with MSYS2 repositories.<br>
-  From there you can install an up-to-date GCC and some common libraries.
-* A script that temporarily configures your kernel to transparently run `.exe` files with Wine, as if they were native executables. All kernel configuration will be undone on a reboot, or can be undone manually with the provided scripts.
-* CMake and Autotools will be tricked into thinking that they're doing a native Windows build!
+* At the moment Cygwin doesn't work under Wine, so Cygwin-based programs are replaced with their native counterparts (`bash`, etc).
+* `pacman` is replaced with a tiny custom package manager.
+* MinGW-based packages (compilers, libraries, etc) are downloaded from MSYS2 repos and are used as is.
+* [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine.
+* Everything is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
 
 ## Prerequisites
 
@@ -19,9 +16,11 @@ Mandatory:
 
 * `make`, `wget`, `tar`, `zstd` (which `tar` uses to unpack `.tar.zst` archives)
 
+  <sup>(If you get makefile errors, try a more recent version of Make.)</sup>
+
 Heavily recommended:
 
-* **Clang**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well, but a native Clang is much faster.
+* **Clang**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well (under Wine), but a native Clang is much faster.
 
 * **Wine** to transparently run Windows programs.
 
@@ -34,7 +33,7 @@ Heavily recommended:
 
   Within such a shell, use `pacmake ...` instead of `make ...` to invoke the package manager.
 
-  First time you start such shell after a reboot, you might be asked for a sudo password to configure the kernel to transparently run `.exe` files. If you don't trust random scripts with your password, continue reading for more details.
+  First time you start such shell after a reboot, you might be asked for a sudo password to configure the kernel to transparently run `.exe` files. If you don't trust random scripts with your password, you can do it manually, see below.
 
 In such a sub-shell, you can do following:
 
@@ -45,9 +44,9 @@ In such a sub-shell, you can do following:
 
   * Cross-compile to Windows using MSYS2 GCC or Clang running under Wine. Normally you want to avoid this, since a native Clang is much faster.
 
-    While using MSYS2 GCC makes some sense if you prefer GCC over Clang, using MSYS2 Clang is completely pointless, since a native Clang will do the same thing but faster.
+    While using MSYS2 GCC makes some sense if you prefer GCC over Clang, using MSYS2 Clang is mostly pointless, since a native Clang will do the same thing but faster.
 
-  * Cross-compile stuff using Autotools and CMake.
+  * Cross-compile things using Autotools and CMake.
 
     Autotools (aka `./configure && make`) should work out of the box.
 
@@ -61,15 +60,7 @@ In such a sub-shell, you can do following:
 
   * Inspect `.dll` dependencies of executables.
 
-    Use the `win-ldd` wrapper. It processes the output of `ntldd.exe` (which needs to be installed with `make install _ntldd-git`), replacing windows paths paths with proper linux paths.
-
-## More stuff
-
-  * How do I add a "menu entry"/"launcher icon"/... for Quasi-MSYS2 shell?
-    * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
-
-  * My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
-    * Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.
+    Use the `win-ldd` wrapper. It processes the output of `ntldd.exe` (which needs to be installed with `make install _ntldd-git`), converting resulting paths to Linux style.
 
 ## What exactly are we doing with the kernel
 
@@ -81,9 +72,15 @@ When run manually, this makefile will behave a bit more nicely, explaining the e
 
 All it does it configuring [`binfmt_misc`](https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst) by adding a custom executable format (Windows `.exe`s), with `wine` as the handler.
 
-## Package manager usage
+## More stuff
 
-You can install various libraries from the package manager.
+  * How do I add a desktop entry for the quasi-msys2 shell?
+    * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
+
+  * My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
+    * Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.
+
+## Package manager usage
 
 Run `make help` to get the full list of commands it supports.
 

@@ -71,7 +71,7 @@ endif
 
 
 # --- VERSION ---
-override version := 1.4.3
+override version := 1.4.4
 
 
 # --- GENERIC UTILITIES ---
@@ -1071,7 +1071,7 @@ $(if $(display_help),\
 	$(info Add one entry per line, in the following format:)\
 	$(info $(space)   target:override)\
 	$(info Where `target` is an ambiguous alias (or name), and `override` is one of)\
-	$(info the packages having this alias (or name), which this it should refer to.)\
+	$(info the packages having this alias (or name), which the alias should refer to.)\
 	$(info The `target` can match the `override`, but since this is the default behavior,)\
 	$(info this merely removes the notice about the ambiguity when updating the database.)\
 	$(info If the specified settings cause a package to give up its name, it becomes)\

@@ -169,6 +169,10 @@ __dummy_func() {
     export "PKG_CONFIG_PATH=$MSYSTEM_PREFIX/lib/pkgconfig:$MSYSTEM_PREFIX/share/pkgconfig"
     echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
 
+    # Disable default pkg-config search paths.
+    export "PKG_CONFIG_LIBDIR="
+    echo "PKG_CONFIG_LIBDIR = $PKG_CONFIG_LIBDIR"
+
     # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.
     # MSYS2 also stores a second path in it, `/usr/share/aclocal` (separated by a `:`), but we probably shouldn't add it forcefully if it's not already there.
     # Since one of the paths MSYS2 stores in it doesn't start with `/mingw64`, it seemed logical to me to append to this variable rather than overwriting it.

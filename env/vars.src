@@ -24,25 +24,19 @@ __dummy_func() {
     export QUASI_MSYS2_ROOT="$(realpath "$(dirname "$BASH_SOURCE")"/..)"
     # Make sure the resulting variable is not empty due to some error. If it is, abort.
     test -z "$QUASI_MSYS2_ROOT" && return
-    echo "Installation directory:"
-    echo "QUASI_MSYS2_ROOT = $QUASI_MSYS2_ROOT"
-    echo ''
+    [[ $QUASI_MSYS2_QUIET ]] || echo "Installation directory:"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "QUASI_MSYS2_ROOT = $QUASI_MSYS2_ROOT"
+    [[ $QUASI_MSYS2_QUIET ]] || echo ''
 
     # `MSYSTEM_PREFIX` is an MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
     # We load its default value from the primary makefile, but we optionally prefix it with the proper absolute path, unless it already exists as a symlink.
-    if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX" ||
-        {
-            # Suggest to create the link automatically.
-            echo 'Trying to create a symlink from `'"$MSYSTEM_PREFIX"'` to the installation directory. Ctrl+C to skip.';
-            echo 'It improves compatibility, and without it `pkg-config` might need `--define-prefix` to function correctly.'
-            echo 'Running `sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'" '"$MSYSTEM_PREFIX"'`.'
-            sudo -k;
-            sudo ln -nfs "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX" "$MSYSTEM_PREFIX" && sudo -k
-        }
-    then
+    if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"; then
         echo 'Found symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`, will use it.'
     else
         echo "$warn"'Didn'"'"'t find symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`.'
+        echo 'It can improve compatibility in some cases. Consider creating it using following command:'
+        echo '    sudo ln -nfs "'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'" '"$MSYSTEM_PREFIX"
+        echo ''
         export "MSYSTEM_PREFIX=$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"
     fi
     echo "MSYSTEM_PREFIX = $MSYSTEM_PREFIX"
@@ -142,36 +136,42 @@ __dummy_func() {
     # A variable read by `Makefile` (the package manager), containing the hook that should be called after installing/uninstalling packages.
     if test -z "$QUASI_MSYS2_PKG_HOOK"; then
         if test -d "$QUASI_MSYS2_ROOT/env/fake_bin"; then
-            echo '`fakebin.mk` is in use, installing a package manager hook for it:'
+            [[ $QUASI_MSYS2_QUIET ]] || echo '`fakebin.mk` is in use, installing a package manager hook for it:'
             export "QUASI_MSYS2_PKG_HOOK=make -f '$QUASI_MSYS2_ROOT/env/fakebin.mk' QUIET=1"
         else
-            echo '`fakebin.mk` is not in use, it doesn'"'"'t need a package manager hook.'
-            echo ''
+            [[ $QUASI_MSYS2_QUIET ]] || echo '`fakebin.mk` is not in use, it doesn'"'"'t need a package manager hook.'
+            [[ $QUASI_MSYS2_QUIET ]] || echo ''
         fi
     fi
     if test "$QUASI_MSYS2_PKG_HOOK"; then
-        echo "QUASI_MSYS2_PKG_HOOK = $QUASI_MSYS2_PKG_HOOK"
-        echo ''
+        [[ $QUASI_MSYS2_QUIET ]] || echo "QUASI_MSYS2_PKG_HOOK = $QUASI_MSYS2_PKG_HOOK"
+        [[ $QUASI_MSYS2_QUIET ]] || echo ''
     fi
 
 
     # Wine will look for executables in this directory.
     export "WINEPATH=$MSYSTEM_PREFIX/bin"
-    echo "WINEPATH = $WINEPATH"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WINEPATH = $WINEPATH"
     which wine >/dev/null || echo "$warn""Can't find Wine. If you want to run native executables, it has to be installed."
 
     # Autotools will read config from that file.
     export "CONFIG_SITE=$QUASI_MSYS2_ROOT/env/config/config.site"
-    echo "CONFIG_SITE = $CONFIG_SITE"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "CONFIG_SITE = $CONFIG_SITE"
 
     # Pkg-config will look for packages in this directory.
     # The value was taken from MSYS2, except `/mingw64` was replaced with `$MSYSTEM_PREFIX`.
     export "PKG_CONFIG_PATH=$MSYSTEM_PREFIX/lib/pkgconfig:$MSYSTEM_PREFIX/share/pkgconfig"
-    echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
+
+    # Pkg-config will add this prefix to every path it outputs.
+    # This will be empty if and only if we have a symlink in `/` (see definition of `MSYSTEM_PREFIX`).
+    export "PKG_CONFIG_SYSROOT_DIR=$(dirname "$MSYSTEM_PREFIX")"
+    [[ $PKG_CONFIG_SYSROOT_DIR == "/" ]] && export PKG_CONFIG_SYSROOT_DIR=
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_SYSROOT_DIR = $PKG_CONFIG_SYSROOT_DIR"
 
     # Disable default pkg-config search paths.
     export "PKG_CONFIG_LIBDIR="
-    echo "PKG_CONFIG_LIBDIR = $PKG_CONFIG_LIBDIR"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_LIBDIR = $PKG_CONFIG_LIBDIR"
 
     # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.
     # MSYS2 also stores a second path in it, `/usr/share/aclocal` (separated by a `:`), but we probably shouldn't add it forcefully if it's not already there.
@@ -179,40 +179,43 @@ __dummy_func() {
     local new_aclocal_path="$(make -f "$QUASI_MSYS2_ROOT/env/internal/AddToPath.mk" "var=ACLOCAL_PATH" "dirs=$MSYSTEM_PREFIX/share/aclocal")"
     test -z "$new_aclocal_path" && return
     export "ACLOCAL_PATH=$new_aclocal_path"
-    echo "ACLOCAL_PATH = $ACLOCAL_PATH"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "ACLOCAL_PATH = $ACLOCAL_PATH"
 
     # Check if MSYS2 CMake is installed. Warn if it is, because it doesn't work properly under Wine.
     test -f "$MSYSTEM_PREFIX/bin/cmake.exe" && echo -e "$warn"'MSYS2 CMake is installed. It won'"'"'t function properly,\nget rid of it and use the `win-cmake` wrapper that calls the native CMake.'
     # This variable is used by our wrapper in `env/wrappers`. We use an absolute path
     # to avoid collisions with MSYS2 CMake if it's installed for some reason.
     export "WIN_NATIVE_CMAKE=$(which cmake)"
-    echo "WIN_NATIVE_CMAKE = $WIN_NATIVE_CMAKE"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_CMAKE = $WIN_NATIVE_CMAKE"
     # This variable is also used by our wrapper in `env/wrappers`, and contains the extra CMake flags.
     export "WIN_CMAKE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=$QUASI_MSYS2_ROOT/env/config/toolchain.cmake -DCMAKE_INSTALL_PREFIX=$MSYSTEM_PREFIX"
-    echo "WIN_CMAKE_FLAGS = $WIN_CMAKE_FLAGS"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_CMAKE_FLAGS = $WIN_CMAKE_FLAGS"
 
-    echo ''
+    [[ $QUASI_MSYS2_QUIET ]] || echo ''
 
     # Update the PATH.
     export "WIN_ORIGINAL_PATH=$PATH"
     local new_path="$(make -f "$QUASI_MSYS2_ROOT/env/internal/AddToPath.mk" "dirs=$QUASI_MSYS2_ROOT/env/wrappers:$QUASI_MSYS2_ROOT/env/fake_bin:$WINEPATH")"
     test -z "$new_path" && return
     export "PATH=$new_path"
-    echo "PATH = $PATH"
-    echo 'Backed up original path to `WIN_ORIGINAL_PATH`.'
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PATH = $PATH"
+    [[ $QUASI_MSYS2_QUIET ]] || echo 'Backed up original path to `WIN_ORIGINAL_PATH`.'
 
     # We don't use the following variables, but still define them for some extra compatibility with MSYS2.
     # The list of variables was obtained by running `printenv` on MSYS2 and manually sorting through the list.
     # Note that some useful MSYS2-style variables (that are actually useful) are defined above and not there.
     # Note that some of the variables we print here were obtained from the config in the primary makefile, at the very beginning of this script.
-    echo ''
-    echo 'Extra MSYS2 mimicry:'
-    echo -n "MSYSTEM=$MSYSTEM; "
-    export "OS=Windows_NT"; echo -n "OS=$OS; "
-    echo -n "MSYSTEM_CARCH=$MSYSTEM_CARCH; "
-    export "MINGW_CHOST=$MSYSTEM_CHOST"; echo -n "MSYSTEM_CHOST=MINGW_CHOST=$MSYSTEM_CHOST; "
+    [[ $QUASI_MSYS2_QUIET ]] || echo ''
+    [[ $QUASI_MSYS2_QUIET ]] || echo 'Extra MSYS2 mimicry:'
+    [[ $QUASI_MSYS2_QUIET ]] || echo -n "MSYSTEM=$MSYSTEM; "
+    export "OS=Windows_NT";
+    [[ $QUASI_MSYS2_QUIET ]] || echo -n "OS=$OS; "
+    [[ $QUASI_MSYS2_QUIET ]] || echo -n "MSYSTEM_CARCH=$MSYSTEM_CARCH; "
+    export "MINGW_CHOST=$MSYSTEM_CHOST";
+    [[ $QUASI_MSYS2_QUIET ]] || echo -n "MSYSTEM_CHOST=MINGW_CHOST=$MSYSTEM_CHOST; "
     # Finally, copy the MSYS2 prompt.
-    export 'PS1=\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[35m\]$MSYSTEM\[\e[0m\] \[\e[33m\]\w\[\e[0m\]\n\[\e[1m\]#\[\e[0m\] '; echo "PS1 = ..."
+    export 'PS1=\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[35m\]$MSYSTEM\[\e[0m\] \[\e[33m\]\w\[\e[0m\]\n\[\e[1m\]#\[\e[0m\] ';
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PS1 = ..."
 }
 # Call our dummy funcion.
 __dummy_func

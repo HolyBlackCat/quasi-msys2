@@ -17,6 +17,7 @@ __dummy_func() {
 
     # This should probably go after `fakebin.mk`, because whether or not we install
     # package manager hooks (that call `fakebin.mk`) depends on whether we have the `fake_bin` directory.
+    local QUASI_MSYS2_QUIET=1
     echo -e '\n--- vars.sh'
     source "$env_path/vars.src" || return 1
 }

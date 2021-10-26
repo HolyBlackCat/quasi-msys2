@@ -93,7 +93,7 @@ __dummy_func() {
             # `--sysroot` tells Clang where to look for a GCC installation.
             # `-pthread` tells is to link winpthread, since it doesn't happen automatically and some CMake scripts expect it.
             # `-femulated-tls` is necessary when using libstdc++ atomics with Clang.
-            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -pthread -femulated-tls"
+            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -pthread -femulated-tls -fuse-ld=lld$clang_ver_suffix"
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.

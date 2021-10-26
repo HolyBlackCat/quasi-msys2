@@ -20,7 +20,7 @@ Mandatory:
 
 Heavily recommended:
 
-* **Clang**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well (under Wine), but a native Clang is much faster.
+* **Clang** and **LLD**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well (under Wine), but a native Clang is much faster.
 
 * **Wine** to transparently run Windows programs.
 
@@ -72,10 +72,19 @@ When run manually, this makefile will behave a bit more nicely, explaining the e
 
 All it does it configuring [`binfmt_misc`](https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst) by adding a custom executable format (Windows `.exe`s), with `wine` as the handler.
 
-## More stuff
+## FAQ
 
   * How do I add a desktop entry for the quasi-msys2 shell?
     * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
+
+  * Using LD instead of LLD when compiling with the native Clang.
+    * I started having problems with the native LD after some MSYS2 update (it produces broken executables), so we default to LLD.
+
+      Last tested on LD 2.34, a more recent version might work.
+
+      LD shipped by MSYS2 (was LD 2.37 last time I checked) works under Wine. If `binfmt_misc` is enabled, you can switch to it using `-fuse-ld=$MSYSTEM_PREFIX/bin/ld.exe`.
+
+      You can try the native LD using `-fuse-ld=ld`. (Or remove `-fuse-ld=lld` from `WIN_CLANG_FLAGS` variable.)
 
   * My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
     * Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.

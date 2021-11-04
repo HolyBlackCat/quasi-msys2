@@ -5,9 +5,9 @@ A small and easy to use Linux-to-Windows cross-compilation environment, utilizin
 
 The goal is to mimic MSYS2, but on Linux.
 
-* `pacman` is replaced with a tiny custom package manager.
 * MinGW-based packages (compilers, libraries, etc) are downloaded from MSYS2 repos.
-* Cygwin-based packages are not available (since Cygwin doesn't work under Wine), but their native equivalents should be enough.
+* Cygwin-based packages are not available (since Cygwin doesn't work well under Wine, if at all), but their native equivalents should be enough.
+* `pacman` is replaced with a tiny custom package manager (since `pacman` itself is Cygwin-based).
 * [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine.
 * The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
 * The installation is entirely self-contained. We don't modify any files outside of the installation directory.

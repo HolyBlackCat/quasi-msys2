@@ -48,7 +48,7 @@ In such a sub-shell, you can do following:
 
     `_gcc` package must be installed, since it provides the standard library for cross-compilation, and more.
 
-  * **Cross-compile to Windows using MSYS2 GCC or Clang** running under Wine. They much slower than a native Clang, and should normally be used as a fallback.
+  * **Cross-compile to Windows using MSYS2 GCC or Clang** running under Wine. They're much slower than a native Clang, and should normally be used as a fallback.
 
     You can invoke them using `gcc`, `g++`, `clang`, `clang++` as usual, assuming the corresponding packages are installed.
 
@@ -70,7 +70,7 @@ In such a sub-shell, you can do following:
 
     Use the `win-ldd` wrapper. You need to have `_ntldd-git` package installed.
 
-    It processes the output of `ntldd.exe` (which needs to be installed with `make install _ntldd-git`), converting resulting paths to Linux style.
+    It processes the output of `ntldd.exe`, converting resulting paths to Linux style.
 
 ## What exactly are we doing with the kernel
 

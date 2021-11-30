@@ -340,7 +340,7 @@ $(database_processed_file): $(database_tmp_file)
 		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
 		$(file >>$@,override FULL_ALIAS_LIST := $(sort $(_local_pkg_list_with_aliases)))\
 		$(if $(_local_had_any_conflicts),\
-			$(call print_log,Note: see `make help` for instructions on changing alternatives.)\
+			$(call print_log,Note: see `$(self) help` for instructions on changing alternatives.)\
 		)\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')

@@ -293,7 +293,7 @@ $(database_processed_file): $(database_tmp_file)
 		$(call print_log,Extracting package database...)\
 		$(call safe_shell_exec,rm -rf $(call quote,$(database_tmp_dir)))\
 		$(call safe_shell_exec,mkdir -p $(call quote,$(database_tmp_dir)))\
-		$(call safe_shell_exec,tar -C $(call quote,$(database_tmp_dir)) -xzf $(call quote,$(database_tmp_file)))\
+		$(call safe_shell_exec,tar -C $(call quote,$(database_tmp_dir)) -xf $(call quote,$(database_tmp_file)))\
 		$(if $(call file_exists,$@),$(call safe_shell_exec,mv -f $(call quote,$@) $(call quote,$(database_processed_file_bak))))\
 		$(call print_log,Processing package database...)\
 		$(call var,_local_db_files := $(sort $(call safe_wildcard,$(desc_pattern))))\

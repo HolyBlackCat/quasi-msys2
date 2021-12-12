@@ -88,12 +88,26 @@ __dummy_func() {
             echo "WIN_NATIVE_CLANG_CXX = $WIN_NATIVE_CLANG_CXX"
 
             # This custom variable specifies the flags for our Clang wrapper in `env/wrappers`.
-            # Note that `clang --version` will report a slightly different target than what we set here. This is normal,
-            # and specifying that target directly would also work.
-            # `--sysroot` tells Clang where to look for a GCC installation.
+            # `--target` sets the target platform.
+            # Note that `clang --version` will report a slightly different target than what we set here. This is normal, and specifying that target directly would also work.
+            # `--sysroot` tells Clang where to look for a GCC/Clang installation.
             # `-pthread` tells is to link winpthread, since it doesn't happen automatically and some CMake scripts expect it.
-            # `-femulated-tls` is necessary when using libstdc++ atomics with Clang.
-            test -z "$WIN_CLANG_FLAGS" && export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -pthread -femulated-tls -fuse-ld=lld$clang_ver_suffix"
+            # `-fuse-ld=lld...` tells Clang to use the LLD linker.
+            # `-femulated-tls` is necessary when using libstdc++ atomics with Clang. Conversely, libc++ atomics need `-fno-emulated-tls`.
+            # `-rtlib`, `-unwindlib` - not sure about those, guessed experimentally to match what MSYS2 does.
+            # `-resource-dir` - not sure if only needed on CLANG{32,64} environments, probably yes.
+            if test -z "$WIN_CLANG_FLAGS"; then
+                export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=lld$clang_ver_suffix -pthread"
+                if [[ $MSYSTEM != CLANG* ]]; then
+                    # `-stdlib=libstdc++ -rtlib=libgcc` are used by default on my Ubuntu Clang, adding them just in case.
+                    export "WIN_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc"
+                else
+                    # `-fno-emulated-tls` is used by default on my Ubuntu Clang, adding it just in case.
+                    export "WIN_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"
+                    # The `find` command is used to descend into the only subdirectory, named after the Clang version.
+                    export "WIN_CLANG_FLAGS+= -resource-dir=$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit)"
+                fi
+            fi
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.

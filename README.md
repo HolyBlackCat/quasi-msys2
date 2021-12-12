@@ -12,6 +12,10 @@ The goal is to mimic MSYS2, but on Linux.
 * The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
 * The installation is entirely self-contained. We don't modify any files outside of the installation directory.
 
+## Environments
+
+Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/environments/). `MINGW64` is the default. [See below](#not-so-frequently-asked-questions) for more details.
+
 ## Prerequisites
 
 Mandatory:
@@ -173,6 +177,16 @@ But you don't need to copy everything if you're making a backup, assuming all fi
 To restore such backup to a working state, run `make apply-delta` in it.
 
 ## Not-so-frequently asked questions
+
+  * How do I use different [MSYS2 environments](https://www.msys2.org/docs/environments/)?
+
+    * The environment can be changed using `echo DesiredEnvName >msystem.txt`, preferably in a clean repository. If you want multiple environments, you need multiple copies of Quasi-MSYS2.
+
+      All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in.)
+
+      `MINGW64`, `MINGW32`, and `UCRT64` are relatively well-tested.
+
+      On `CLANG64` and `CLANG32`, cross-compiling with the native Clang is experimental. It's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?).
 
   * How do I add a desktop entry for the quasi-msys2 shell?
     * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.

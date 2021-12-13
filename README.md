@@ -68,7 +68,9 @@ In such a sub-shell, you can do following:
 
     Use the `win-gdb` wrapper. You need to have `_gdb` package installed.
 
-    MSYS2 GDB doesn't interact well with a regular terminal, but runs nicely inside of `wineconsole`. This wrapper starts `wineconsole` automatically.
+    MSYS2 GDB doesn't interact well with a regular terminal, but runs nicely inside of `wineconsole`. This wrapper starts `wineconsole` automatically. It will open a new terminal window, CMD style.
+
+    Or, to reuse your existing terminal window, start `wine cmd` and run `gdb` inside of it. I've yet to figure out how to combine this into a single convenient command.
 
   * **Inspect `.dll` dependencies of executables.**
 

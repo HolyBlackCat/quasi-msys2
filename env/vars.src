@@ -41,6 +41,7 @@ __dummy_func() {
     fi
     echo "MSYSTEM_PREFIX = $MSYSTEM_PREFIX"
 
+    # Select C/C++ compilers.
     if test "$MINGW_CC" || test "$MINGW_CXX"; then
         # A custom compiler is specified, use it.
         export "CC=$MINGW_CC"
@@ -141,9 +142,17 @@ __dummy_func() {
         fi
     fi
 
-    # Print the compiler we ended up with.
-    echo "CC = $CC"
+    # Select a resource compiler.
+    if test "$MINGW_RC"; then
+        export "RC=$MINGW_RC"
+    else
+        export "RC=windres"
+    fi
+
+    # Print the compilers we ended up with.
+    echo "CC  = $CC"
     echo "CXX = $CXX"
+    echo "RC  = $RC"
     echo ''
 
 

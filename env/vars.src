@@ -142,17 +142,28 @@ __dummy_func() {
         fi
     fi
 
-    # Select a resource compiler.
+    # Select a resource compiler. CMake sometimes needs this variable?
     if test "$MINGW_RC"; then
         export "RC=$MINGW_RC"
     else
         export "RC=windres"
     fi
 
+    # Create wariables for `win-cmake` and `win-ldd`. Not sure if anyone uses those, it's mostly for ourselves.
+    if test "$MINGW_CMAKE"; then
+        export "CMAKE=$MINGW_RC"
+    else
+        export "CMAKE=win-cmake"
+    fi
+    if test "$MINGW_LDD"; then
+        export "LDD=$MINGW_RC"
+    else
+        export "LDD=win-ldd"
+    fi
+
     # Print the compilers we ended up with.
     echo "CC  = $CC"
     echo "CXX = $CXX"
-    echo "RC  = $RC"
     echo ''
 
 

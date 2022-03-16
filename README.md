@@ -58,11 +58,7 @@ In such a sub-shell, you can do following:
 
   * **Cross-compile using Autotools and CMake.**
 
-    **Autotools** (aka `./configure && make`) should work out of the box. Your native `make` is used.
-
-    For **CMake** use the `win-cmake` wrapper. Your native CMake will be used, no extra flags are necessary.
-
-    **`pkg-config`** should work out of the box. You must have a native version installed.
+    Both should work out of the box. `pkg-config` also works.
 
   * **Debug executables running under Wine.**
 
@@ -263,6 +259,6 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
     * `config.site` — This configures the Autotools. `vars.src` stores a path to it in `CONFIG_SITE`, which Autotools read.
 
-    * `toolchain.cmake` — This configures CMake. The `win-cmake` wrapper passes this file to CMake.
+    * `toolchain.cmake` — This configures CMake. Our CMake wrapper passes this file to CMake.
 
   * `internal/` — Internal helper scripts.

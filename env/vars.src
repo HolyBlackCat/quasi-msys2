@@ -153,12 +153,7 @@ __dummy_func() {
         export "RC=windres"
     fi
 
-    # Create wariables for `win-cmake` and `win-ldd`. Not sure if anyone uses those, it's mostly for ourselves.
-    if test "$MINGW_CMAKE"; then
-        export "CMAKE=$MINGW_RC"
-    else
-        export "CMAKE=win-cmake"
-    fi
+    # Create a variable for `win-ldd`. Not sure if anyone uses this, it's mostly for my convenience.
     if test "$MINGW_LDD"; then
         export "LDD=$MINGW_RC"
     else

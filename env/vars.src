@@ -109,6 +109,10 @@ __dummy_func() {
                     export "WIN_CLANG_FLAGS+= -resource-dir=$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit)"
                 fi
             fi
+            # Create another variable for C-only flags. Same, but without -stdlib. Otherwise `win-clang` warns about an unused argument.
+            if test -z "$WIN_CLANG_FLAGS_C"; then
+                export "WIN_CLANG_FLAGS_C=$(echo $WIN_CLANG_FLAGS | sed 's/ -stdlib=[^ ]*//')"
+            fi
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.

@@ -55,7 +55,7 @@ __dummy_func() {
         if test -z "$WIN_CLANG_VER"; then
             export "WIN_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort | tail -1 | sed 's/clang-//')"
             # If we found no suffix OR the executable doesn't exist for some reason, set the suffix to NONE.
-            ( test -z "$WIN_CLANG_VER" || ! which "clang-$WIN_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_CLANG_VER=NONE"
+            ( test -z "$WIN_CLANG_VER" || ! which "clang-$WIN_CLANG_VER" "clang++-$WIN_CLANG_VER" >/dev/null ) && export "WIN_CLANG_VER=NONE"
             echo '  Guessed Clang version suffix: WIN_CLANG_VER = '"$WIN_CLANG_VER"
             echo '  You can override it by setting it to a number or to `NONE` for no suffix.'
         fi

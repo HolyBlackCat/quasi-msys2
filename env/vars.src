@@ -74,9 +74,15 @@ __dummy_func() {
             export "CC=win-clang"
             export "CXX=win-clang++"
 
-            # Warn if MSYS2 GCC is not installed.
-            if test ! -f "$MSYSTEM_PREFIX/bin/gcc.exe" || test ! -f "$MSYSTEM_PREFIX/bin/g++.exe"; then
-                echo "$warn""Couldn't find the MSYS2 GCC. It has to be installed for the native Clang to be able to cross-compile."
+            # Warn if MSYS2 GCC (or Clang, for CLANG* environments) is not installed.
+            if [[ $MSYSTEM != CLANG* ]]; then
+                if test ! -f "$MSYSTEM_PREFIX/bin/gcc.exe" || test ! -f "$MSYSTEM_PREFIX/bin/g++.exe"; then
+                    echo "$warn""Couldn't find the MSYS2 GCC. It has to be installed for the native Clang to be able to cross-compile."
+                fi
+            else
+                if test ! -f "$MSYSTEM_PREFIX/bin/clang.exe" || test ! -f "$MSYSTEM_PREFIX/bin/clang++.exe"; then
+                    echo "$warn""Couldn't find the MSYS2 Clang. It has to be installed for the native Clang to be able to cross-compile."
+                fi
             fi
 
             # If MSYS2 Clang is installed, switch to absolute paths and warn.

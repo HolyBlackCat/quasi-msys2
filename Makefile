@@ -26,9 +26,11 @@ MSYSTEM := $(file <msystem.txt)
 # Default to MSYSTEM=MINGW64 if the file is missing.
 $(if $(MSYSTEM),,$(eval MSYSTEM := MINGW64))
 
+MIRROR_URL := https://mirror.msys2.org
+
 ifeq ($(MSYSTEM),MINGW64)
 # URL of the repository database.
-REPO_DB_URL := https://repo.msys2.org/mingw/x86_64/mingw64.db
+REPO_DB_URL := $(MIRROR_URL)/mingw/x86_64/mingw64.db
 # A common prefix for all packages.
 # You don't have to set this variable, as it's only used for convenience, to avoid typing long package names. (See notes at the end of `make help` for details.)
 REPO_PACKAGE_COMMON_PREFIX := mingw-w64-x86_64-
@@ -37,25 +39,25 @@ MSYSTEM_PREFIX := /mingw64# The top-level directory of all packages.
 MSYSTEM_CARCH := x86_64
 MSYSTEM_CHOST := x86_64-w64-mingw32
 else ifeq ($(MSYSTEM),MINGW32)
-REPO_DB_URL := https://repo.msys2.org/mingw/i686/mingw32.db
+REPO_DB_URL := $(MIRROR_URL)/mingw/i686/mingw32.db
 REPO_PACKAGE_COMMON_PREFIX := mingw-w64-i686-
 MSYSTEM_PREFIX := /mingw32
 MSYSTEM_CARCH := i686
 MSYSTEM_CHOST := i686-w64-mingw32
 else ifeq ($(MSYSTEM),UCRT64)
-REPO_DB_URL := http://repo.msys2.org/mingw/ucrt64/ucrt64.db
+REPO_DB_URL := $(MIRROR_URL)/mingw/ucrt64/ucrt64.db
 REPO_PACKAGE_COMMON_PREFIX := mingw-w64-ucrt-x86_64-
 MSYSTEM_PREFIX := /ucrt64
 MSYSTEM_CARCH := x86_64
 MSYSTEM_CHOST := x86_64-w64-mingw32
 else ifeq ($(MSYSTEM),CLANG64)
-REPO_DB_URL := http://repo.msys2.org/mingw/clang64/clang64.db
+REPO_DB_URL := $(MIRROR_URL)/mingw/clang64/clang64.db
 REPO_PACKAGE_COMMON_PREFIX := mingw-w64-clang-x86_64-
 MSYSTEM_PREFIX := /clang64
 MSYSTEM_CARCH := x86_64
 MSYSTEM_CHOST := x86_64-w64-mingw32
 else ifeq ($(MSYSTEM),CLANG32)
-REPO_DB_URL := http://repo.msys2.org/mingw/clang32/clang32.db
+REPO_DB_URL := $(MIRROR_URL)/mingw/clang32/clang32.db
 REPO_PACKAGE_COMMON_PREFIX := mingw-w64-clang-i686-
 MSYSTEM_PREFIX := /clang32
 MSYSTEM_CARCH := i686
@@ -71,7 +73,7 @@ endif
 
 
 # --- VERSION ---
-override version := 1.4.4
+override version := 1.4.5
 
 
 # --- GENERIC UTILITIES ---

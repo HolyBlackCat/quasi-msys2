@@ -26,7 +26,11 @@ MSYSTEM := $(file <msystem.txt)
 # Default to MSYSTEM=MINGW64 if the file is missing.
 $(if $(MSYSTEM),,$(eval MSYSTEM := MINGW64))
 
+# Mirror URL. You can pass a custom mirror, or pass an empty string to use the primary repo.
 MIRROR_URL := https://mirror.msys2.org
+ifeq ($(MIRROR_URL),)
+override MIRROR_URL := https://repo.msys2.org/
+endif
 
 ifeq ($(MSYSTEM),MINGW64)
 # URL of the repository database.
@@ -66,14 +70,19 @@ else
 $(error Unknown MSYSTEM: $(MSYSTEM))
 endif
 
+# Database signature URL.
+REPO_DB_SIG_URL := $(REPO_DB_URL).sig
+
 # To add more `MSYSTEM`s:
 # * Find the appropriate repository at: http://repo.msys2.org/mingw/
 # * Copy variables from: https://github.com/msys2/MSYS2-packages/blob/master/filesystem/msystem
 
+# The keys are downloaded from here.
+KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys2.gpg
 
 
 # --- VERSION ---
-override version := 1.4.5
+override version := 1.5.0
 
 
 # --- GENERIC UTILITIES ---
@@ -211,6 +220,40 @@ $(call print_log,Restaring 'make'...)
 endif
 
 
+# --- SIGNATURE INTERNALS ---
+
+# Download path for the original, unfiltered keyring. Note, it might contain revoked keys!
+override sig_keyring_path_orig := ./keyring.original_unfiltered
+
+# A path for the filtered keyring, with revoked and irrelevant keys removed.
+override sig_keyring_path_filtered := ./keyring.gpg
+
+# Path for the final keyring, a binary version of `$(sig_keyring_path_filtered)`.
+# This has to begin with `./`, otherwise GPG becomes confused.
+override sig_keyring_path := ./keyring.kbx
+
+# Downloads a new keyring to `$(sig_keyring_path)`.
+override sig_update_keyring = \
+	$(call print_log,Updating keyring...)\
+	$(call, ### Erase the old file, since we call wget in the 'continue' mode.)\
+	$(call safe_shell_exec,rm -f $(call quote,$(sig_keyring_path_orig)) $(call quote,$(sig_keyring_path_filtered))) \
+	$(if $(call use_wget,$(KEYRING_URL),$(sig_keyring_path_orig)),$(error Unable to download the keyring. Try again with `--trace` to debug)) \
+	$(call print_log,Found keys:)\
+	$(call safe_shell_exec,awk '/Comment: packager: / {x=1; print "-----BEGIN PGP PUBLIC KEY BLOCK-----"; c=$$0; sub(/Comment: packager: /,"* ",c); print c > "/dev/stderr"} x {print} /-----END/ {x=0}' $(call quote,$(sig_keyring_path_orig)) >$(call quote,$(sig_keyring_path_filtered)))\
+	$(call safe_shell_exec,rm -f $(call quote,$(sig_keyring_path_orig)))\
+	$(call, ### I've tested, it does remove the existing keys.)\
+	$(call safe_shell_exec,LANG= gpg --batch --yes -o $(call quote,$(sig_keyring_path)) --dearmor $(call quote,$(sig_keyring_path_filtered)))\
+	$(call safe_shell_exec,rm -f $(call quote,$(sig_keyring_path_filtered)))
+
+# Verifies a signature against the current keyring. Causes an error on failure.
+# $1 is the file.
+# $2 is the signature.
+override sig_verify = \
+	$(if $(filter-out 0,$(call shell_status,LANG= gpg --batch --yes --no-default-keyring --keyring $(call quote,$(sig_keyring_path)) --trust-model always --verify $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
+		$(error Signature check failed!$(lf)File: $1$(lf)Signature: $2$(lf)Try again with `--trace` to see GPG output)\
+	)
+
+
 # --- DATABASE INTERNALS ---
 
 # The main database file.
@@ -221,8 +264,12 @@ override database_processed_file_bak := database.mk.bak
 
 # Temporary database file, downloaded directly from the repo.
 override database_tmp_file := database.db
+# Temporary database signature file.
+override database_tmp_file_sig := database.db.sig
 # A copy of `database.db`. The current processed database should be based on this file.
 override database_tmp_file_original := database.current_original
+# Database signature file.
+override database_tmp_file_original_sig := database.current_original.sig
 
 # Temporary database directory.
 override database_tmp_dir := database
@@ -292,6 +339,11 @@ $(database_processed_file): $(database_tmp_file)
 	$(if $(_local_database_not_changed),\
 		$(call print_log,The database has not changed.)\
 	,\
+		$(sig_update_keyring)\
+		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_sig)))\
+		$(if $(call use_wget,$(REPO_DB_SIG_URL),$(database_tmp_file_sig)),$(error Unable to download the database signature. Try again with `--trace` to debug))\
+		$(call sig_verify,$(database_tmp_file),$(database_tmp_file_sig))\
+		$(call print_log,Database signature is valid.)\
 		$(call print_log,Extracting package database...)\
 		$(call safe_shell_exec,rm -rf $(call quote,$(database_tmp_dir)))\
 		$(call safe_shell_exec,mkdir -p $(call quote,$(database_tmp_dir)))\
@@ -347,6 +399,7 @@ $(database_processed_file): $(database_tmp_file)
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
 	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))
+	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_sig)) $(call quote,$(database_tmp_file_original_sig)))
 	$(if $(_local_bad_conflict_resolutions),\
 		$(call print_log,Warning: following entries in '$(database_alternatives_file)' are invalid:)\
 		$(foreach x,$(_local_bad_conflict_resolutions),$(call print_log,* $x))\
@@ -473,6 +526,7 @@ override cache_unfinished_prefix = ---
 
 # $1 is the url, relative to the repo url. If it's a space-separated list of urls, they are tried in order until one works.
 # If the file is not cached, it's downloaded.
+# The signature is also downloaded automatically, and checked.
 override cache_download_file_if_missing = \
 	$(if $(strip $(foreach x,$1,$(call file_exists,$(CACHE_DIR)/$(notdir $x)))),,\
 		$(call var,_local_continue := y)\
@@ -480,9 +534,13 @@ override cache_download_file_if_missing = \
 		$(foreach x,$1,$(if $(_local_continue),\
 			$(if $(_local_first),$(call var,_local_first :=),$(call print_log,Failed$(comma) trying different suffix.))\
 			$(call print_log,Downloading '$(notdir $x)'...)\
-			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),,\
+			$(if $(call use_wget,$(dir $(REPO_DB_URL))$x.sig,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x).sig),,\
 				$(call var,_local_continue :=)\
+				$(if $(call use_wget,$(dir $(REPO_DB_URL))$x,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)),$(error Downloaded the signature, but can't download the package. Try again with `--trace` to debug))\
+				$(call sig_verify,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x),$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x).sig)\
+				$(call print_log,Package signature is valid.)\
 				$(call safe_shell_exec,mv -f $(call quote,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x)) $(call quote,$(CACHE_DIR)/$(notdir $x)))\
+				$(call safe_shell_exec,mv -f $(call quote,$(CACHE_DIR)/$(cache_unfinished_prefix)$(notdir $x).sig) $(call quote,$(CACHE_DIR)/$(notdir $x).sig))\
 			)\
 		))\
 		$(if $(_local_continue),$(error Unable to download the package. Try again with `--trace` to debug))\
@@ -1036,6 +1094,7 @@ $(call act, cache-remove-unused \
 	$(foreach x,$(cache_list_unused),\
 		$(foreach y,$(REPO_PACKAGE_ARCHIVE_SUFFIXES),\
 			$(call safe_shell_exec,rm -f '$(CACHE_DIR)/$x$y')\
+			$(call safe_shell_exec,rm -f '$(CACHE_DIR)/$x$y.sig')\
 		)\
 		$(info Removed '$x' from cache)\
 	)

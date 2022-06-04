@@ -4,7 +4,9 @@ index/**
 root/**
 env/fake_bin/**
 database.current_original
+database.current_original.sig
 database.db
 database.mk
 database.mk.bak
+keyring.kbx
 requested_packages.txt

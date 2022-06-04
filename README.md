@@ -2,7 +2,6 @@
 
 A small and easy to use Linux-to-Windows cross-compilation environment, utilizing prebuilt packages from [MSYS2 repos](https://packages.msys2.org/package/).
 
-
 The goal is to mimic MSYS2, but on Linux.
 
 * MinGW-based packages (compilers, libraries, etc) are downloaded from MSYS2 repos.
@@ -20,7 +19,7 @@ Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/e
 
 Mandatory:
 
-* `make`, `wget`, `tar`, `zstd`
+* `make`, `wget`, `tar`, `zstd`, `gpg`
 
 Heavily recommended:
 
@@ -29,6 +28,12 @@ Heavily recommended:
 * **Wine** to transparently run Windows programs.
 
 ## Basic usage
+
+```sh
+git clone https://github.com/HolyBlackCat/quasi-msys2
+cd quasi-msys2
+```
+Then:
 
 * `make install _gcc _gdb` to install MSYS2 GCC and GDB.<br>
   You're encouraged to routinely run `make upgrade` to update the installed packages.
@@ -153,8 +158,6 @@ The list above contains only the most common commands. See `make help` for more.
 
 **Known issues**
 
-* Package signatures are not verified! But at least we're downloading the files using HTTPS by default.
-
 * Pre/post-install actions are not executed; we simply unpack the package archives. In most cases this is good enough.
 
 * If a package depends on a specific version of some other package, the exact version of that package is not checked. This shouldn't affect you, as long as you don't manually install outdated packages.
@@ -211,13 +214,18 @@ To restore such backup to a working state, run `make apply-delta` in it.
 * `index/` — For each installed package it contains a file with a list of files owned by it.
 
   `root/` and `index/` must always stay in sync, otherwise things will break.
+
 * `cache/` — Stores cached archives of the packages downloaded from the repo.
+
+  Also stores archive signatures. They're checked at download time, and are preserved for informational purposes only.
 
 * `database.mk` — The package database, converted to our own format.
 
 * `database.mk.bak` — A backup of `database.mk` performed the last time a new database was downloaded.
 
-* `database.current_original` — The original database file downloaded from the repository. This is used to speed up database updated (if the downloaded database matches this file, we don't need to reparse it).
+* `database.current_original[.sig]` — The original database file downloaded from the repository. This is used to speed up database updated (if the downloaded database matches this file, we don't need to reparse it).
+
+   The signature is checked at download time, and is preserved for informational purposes only.
 
 * `requested_packages.txt` — A list of installed packages, not including the automatically installed dependencies.
 

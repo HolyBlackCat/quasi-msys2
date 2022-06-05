@@ -82,7 +82,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.5.0
+override version := 1.5.1
 
 
 # --- GENERIC UTILITIES ---
@@ -338,6 +338,7 @@ $(database_processed_file): $(database_tmp_file)
 	))\
 	$(if $(_local_database_not_changed),\
 		$(call print_log,The database has not changed.)\
+		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file)))\
 	,\
 		$(sig_update_keyring)\
 		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_sig)))\
@@ -396,10 +397,10 @@ $(database_processed_file): $(database_tmp_file)
 		$(if $(_local_had_any_conflicts),\
 			$(call print_log,Note: see `$(self) help` for instructions on changing alternatives.)\
 		)\
+    	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))\
+    	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_sig)) $(call quote,$(database_tmp_file_original_sig)))\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
-	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))
-	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_sig)) $(call quote,$(database_tmp_file_original_sig)))
 	$(if $(_local_bad_conflict_resolutions),\
 		$(call print_log,Warning: following entries in '$(database_alternatives_file)' are invalid:)\
 		$(foreach x,$(_local_bad_conflict_resolutions),$(call print_log,* $x))\

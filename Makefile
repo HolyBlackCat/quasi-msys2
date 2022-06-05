@@ -223,14 +223,13 @@ endif
 # --- SIGNATURE INTERNALS ---
 
 # Download path for the original, unfiltered keyring. Note, it might contain revoked keys!
-override sig_keyring_path_orig := ./keyring.original_unfiltered
+override sig_keyring_path_orig := keyring.original_unfiltered
 
 # A path for the filtered keyring, with revoked and irrelevant keys removed.
-override sig_keyring_path_filtered := ./keyring.gpg
+override sig_keyring_path_filtered := keyring.gpg
 
 # Path for the final keyring, a binary version of `$(sig_keyring_path_filtered)`.
-# This has to begin with `./`, otherwise GPG becomes confused.
-override sig_keyring_path := ./keyring.kbx
+override sig_keyring_path := keyring.kbx
 
 # Downloads a new keyring to `$(sig_keyring_path)`.
 override sig_update_keyring = \
@@ -242,14 +241,14 @@ override sig_update_keyring = \
 	$(call safe_shell_exec,awk '/Comment: packager: / {x=1; print "-----BEGIN PGP PUBLIC KEY BLOCK-----"; c=$$0; sub(/Comment: packager: /,"* ",c); print c > "/dev/stderr"} x {print} /-----END/ {x=0}' $(call quote,$(sig_keyring_path_orig)) >$(call quote,$(sig_keyring_path_filtered)))\
 	$(call safe_shell_exec,rm -f $(call quote,$(sig_keyring_path_orig)))\
 	$(call, ### I've tested, it does remove the existing keys.)\
-	$(call safe_shell_exec,LANG= gpg --batch --yes -o $(call quote,$(sig_keyring_path)) --dearmor $(call quote,$(sig_keyring_path_filtered)))\
+	$(call safe_shell_exec,LANG= gpg --batch --yes -o ./$(call quote,$(sig_keyring_path)) --dearmor $(call quote,$(sig_keyring_path_filtered)))\
 	$(call safe_shell_exec,rm -f $(call quote,$(sig_keyring_path_filtered)))
 
 # Verifies a signature against the current keyring. Causes an error on failure.
 # $1 is the file.
 # $2 is the signature.
 override sig_verify = \
-	$(if $(filter-out 0,$(call shell_status,LANG= gpg --batch --yes --no-default-keyring --keyring $(call quote,$(sig_keyring_path)) --trust-model always --verify $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
+	$(if $(filter-out 0,$(call shell_status,LANG= gpg --batch --yes --no-default-keyring --keyring ./$(call quote,$(sig_keyring_path)) --trust-model always --verify $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
 		$(error Signature check failed!$(lf)File: $1$(lf)Signature: $2$(lf)Try again with `--trace` to see GPG output)\
 	)
 

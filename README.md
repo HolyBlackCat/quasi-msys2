@@ -58,6 +58,8 @@ Running `env/shell.sh` opens a Bash shell configured for cross-compiling. In thi
 
 * Environment variables are set for `./configure` (GNU autotools) to do the right thing, without any extra flags.
 
+* Both Cmake and Autotools are made to think that we're performing a native build.
+
 * Certain wrappers are provided:
 
   * `win-clang` and `win-clang++` invoke your native Clang with the right flags for cross-compilation. If Clang is available, `$CC` and `$CXX` default to `win-clang` and `win-clang++`.

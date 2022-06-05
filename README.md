@@ -9,11 +9,28 @@ The goal is to mimic MSYS2, but on Linux.
 * `pacman` is replaced with a tiny custom package manager (since `pacman` itself is Cygwin-based).
 * [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine.
 * The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
-* The installation is entirely self-contained. We don't modify any files outside of the installation directory.
+* The installation directory is entirely self-contained.
 
-## Environments
+## Example usage
 
-Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/environments/). `MINGW64` is the default. [See below](#not-so-frequently-asked-questions) for more details.
+```bash
+git clone https://github.com/holyblackcat/quasi-msys2
+cd quasi-msys2
+make install _gcc _gdb # same as `make install mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb`
+env/shell.sh
+
+$CXX 1.cpp
+./a.exe
+```
+
+
+If you have Clang installed (this is recommended), `$CC` and `$CXX` will invoke it with the right flags for cross-compilation. (`make install _gcc` is still needed for the libraries it provides)
+
+If you don't have Clang, it will fall back to running MSYS2's GCC (or Clang) using Wine.
+
+In the shell launched by `env/shell.sh`, commands like `pkg-config` and `cmake` work like you would expect. There is also `win-gdb` (replaces `gdb`) and `win-ldd` (replaces `ntldd -R`).
+
+Executables from the installed MSYS2 packages will be in the PATH (will be invoked with Wine).
 
 ## Prerequisites
 
@@ -23,71 +40,35 @@ Mandatory:
 
 Heavily recommended:
 
-* **Clang** and **LLD**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well (under Wine), but a native Clang is much faster.
+* **Clang** and **LLD**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well (with Wine), but a native Clang is much faster.
 
 * **Wine** to transparently run Windows programs.
 
-## Basic usage
+## Features of `env/shell.sh`
 
-```sh
-git clone https://github.com/HolyBlackCat/quasi-msys2
-cd quasi-msys2
-```
-Then:
+Running `env/shell.sh` opens a Bash shell configured for cross-compiling. In this shell:
 
-* `make install _gcc _gdb` to install MSYS2 GCC and GDB.<br>
-  You're encouraged to routinely run `make upgrade` to update the installed packages.
+* `pacmake` lets you access to the package manager (outside of this shell, use `make` in the installation directory).
 
-* `env/shell.sh` to start a sub-shell configured for cross-compiling. Type `exit` to return to the original shell.
+* `.exe` files are invoked transparently with Wine, with the help of [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc). This works everywhere, until a reboot.
 
-  Within such a shell, use `pacmake ...` instead of `make ...` to invoke the package manager.
+* Any executables from the installed packages are available (in the PATH, and will be invoked with Wine).
 
-  First time you start such shell after a reboot, you might be asked for a sudo password to configure the kernel to transparently run `.exe` files. If you don't trust random scripts with your password, you can do it manually, see below.
+* `cmake` and `pkg-config` do the right thing, without any extra flags.
 
-In such a sub-shell, you can do following:
+* Environment variables are set for `./configure` (GNU autotools) to do the right thing, without any extra flags.
 
-  * **Invoke any `.exe` files transparently** as if they were native executables. Wine will be used for that.<br>
-  <sub>(Actually this will work everywhere, until you reboot or manually tell the kernel to stop doing this, see below.)</sub>
+* Certain wrappers are provided:
 
-    Even if you opted out of kernel configuration, you can always transparently invoke any programs installed from the packages, without specifying the extension. E.g. `g++` is equivalent to `wine g++.exe`, assuming GCC is installed.
+  * `win-clang` and `win-clang++` invoke your native Clang with the right flags for cross-compilation. If Clang is available, `$CC` and `$CXX` default to `win-clang` and `win-clang++`.
 
-    The installation directory is prepended to `PATH`, so programs from MSYS2 repos take precedence.
+  * `win-gdb` invokes MSYS2's `gdb` in a separate Wineconsole window (it doesn't work in the regular terminal).
 
-  * **Cross-compile to Windows using your native Clang**, using `win-clang` and `win-clang++` wrappers. This is the recommended approach.
+  * `win-gdb` invokes MSYS2's `ntldd -R` and converts the path to unix-style.
 
-    `_gcc` package must be installed, since it provides the standard library for cross-compilation, and more.
+## Environments
 
-  * **Cross-compile to Windows using MSYS2 GCC or Clang** running under Wine. They're much slower than a native Clang, and should normally be used as a fallback.
-
-    You can invoke them using `gcc`, `g++`, `clang`, `clang++` as usual, assuming the corresponding packages are installed.
-
-  * **Cross-compile using Autotools and CMake.**
-
-    Both should work out of the box. `pkg-config` also works.
-
-  * **Debug executables running under Wine.**
-
-    Use the `win-gdb` wrapper. You need to have `_gdb` package installed.
-
-    MSYS2 GDB doesn't interact well with a regular terminal, but runs nicely inside of `wineconsole`. This wrapper starts `wineconsole` automatically. It will open a new terminal window, CMD style.
-
-    Or, to reuse your existing terminal window, start `wine cmd` and run `gdb` inside of it. I've yet to figure out how to combine this into a single convenient command.
-
-  * **Inspect `.dll` dependencies of executables.**
-
-    Use the `win-ldd` wrapper. You need to have `_ntldd-git` package installed.
-
-    It processes the output of `ntldd.exe`, converting resulting paths to Linux style.
-
-## What exactly are we doing with the kernel
-
-We use [`binfmt_misc`](https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst) to temporarily configure the kernel to transparently run Windows `.exe`s using Wine.
-
-This requires root permissions, and persists until a reboot or until stopped manually.
-
-This is not restricted to Quasi-MSYS2 shells, and will work everywhere.
-
-See `env/binfmk.mk` for the exact commands we're using.
+Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/environments/). `MINGW64` is the default. [See below](#not-so-frequently-asked-questions) for more details.
 
 ## Package manager usage
 
@@ -110,7 +91,7 @@ Here are some common ones:
 * `make upgrade` - Download the latest package database and install package updates.<br>
   Do this routinely to keep your installation up to date.
 
-  <sup>To update only the database and not the packages, run `make update`.</sup>
+  The last update can be rolled back using `make rollback`.
 
 * `make list-ins` - List all installed packages.
 

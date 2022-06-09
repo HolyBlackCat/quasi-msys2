@@ -9,7 +9,7 @@ The goal is to mimic MSYS2, but on Linux.
 * `pacman` is replaced with a tiny custom package manager (since `pacman` itself is Cygwin-based).
 * [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine.
 * The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
-* The installation directory is entirely self-contained.
+* The installation directory is entirely self-ccontained.
 
 ## Example usage
 
@@ -66,7 +66,7 @@ Running `env/shell.sh` opens a Bash shell configured for cross-compiling. In thi
 
   * `win-gdb` invokes MSYS2's `gdb` in a separate Wineconsole window (it doesn't work in the regular terminal).
 
-  * `win-gdb` invokes MSYS2's `ntldd -R` and converts the path to unix-style.
+  * `win-ldd` invokes MSYS2's `ntldd -R` and converts the path to unix-style. If you want wine-flavored paths, use `ntldd -R` directly.
 
 ## Environments
 

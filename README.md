@@ -9,7 +9,7 @@ The goal is to mimic MSYS2, but on Linux.
 * `pacman` is replaced with a tiny custom package manager (since `pacman` itself is Cygwin-based).
 * [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine.
 * The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
-* The installation directory is entirely self-ccontained.
+* The installation directory is entirely self-contained.
 
 ## Example usage
 

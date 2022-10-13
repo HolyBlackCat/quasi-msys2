@@ -81,7 +81,7 @@ __dummy_func() {
                 fi
             else
                 if test ! -f "$MSYSTEM_PREFIX/bin/clang.exe" || test ! -f "$MSYSTEM_PREFIX/bin/clang++.exe"; then
-                    echo "$warn""Couldn't find the MSYS2 Clang. It has to be installed for the native Clang to be able to cross-compile."
+                    echo "$warn""Couldn't find the MSYS2 Clang. It has to be installed for the native Clang to be able to cross-compile. Restart the shell after after installing it."
                 fi
             fi
 
@@ -113,7 +113,10 @@ __dummy_func() {
                     # `-fno-emulated-tls` is used by default on my Ubuntu Clang, adding it just in case.
                     export "WIN_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"
                     # The `find` command is used to descend into the only subdirectory, named after the Clang version.
-                    export "WIN_CLANG_FLAGS+= -resource-dir=$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit)"
+                    local clang_res_dir="$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit)"
+                    if [[ $clang_res_dir ]]; then
+                        export "WIN_CLANG_FLAGS+= -resource-dir=$clang_res_dir"
+                    fi
                 fi
             fi
             # Create another variable for C-only flags. Same, but without -stdlib. Otherwise `win-clang` warns about an unused argument.

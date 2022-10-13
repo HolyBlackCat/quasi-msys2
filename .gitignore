@@ -1,12 +1,13 @@
 cache/**
-database/**
-index/**
-root/**
-env/fake_bin/**
 database.current_original
 database.current_original.sig
 database.db
 database.mk
 database.mk.bak
+database/**
+env/fake_bin/**
+index/**
 keyring.kbx
+msystem.txt
 requested_packages.txt
+root/**

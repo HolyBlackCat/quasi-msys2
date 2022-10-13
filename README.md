@@ -168,9 +168,7 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
       All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in.)
 
-      `MINGW64`, `MINGW32`, and `UCRT64` are relatively well-tested.
-
-      On `CLANG64` and `CLANG32`, cross-compiling with the native Clang is experimental. It's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?).
+      On `CLANG64` and `CLANG32`, when using the native Clang, it's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On those, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
 
   * How do I add a desktop entry for the quasi-msys2 shell?
     * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.

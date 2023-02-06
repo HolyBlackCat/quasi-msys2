@@ -82,7 +82,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.5.1
+override version := 1.5.2
 
 
 # --- GENERIC UTILITIES ---
@@ -307,11 +307,11 @@ override code_pkg_version_var = $(file >>$1,override VERSION_OF_$(call strip_ver
 
 # Prints to a file $1 a make target for a list of packages $2, that depend on packages $3.
 # $1 is a destination file.
-# Both $1 and $2 shouldn't contain versions, but $2 can contain version conditions, such as `=1.2` or `>=1.2`.
+# Both $2 and $3 shouldn't contain versions.
 # The first name in $2 is considered to be the actual name of the package.
 override code_pkg_target = \
 	$(file >>$1,.PHONY: $(addprefix PKG@@,$(sort $2)))\
-	$(file >>$1,$(addprefix PKG@@,$(sort $2)): $$(if $$(__deps),$(addprefix PKG@@,$(sort $(call strip_ver_cond,$3)))) ; @echo 'PKG@@$(word 1,$2)')
+	$(file >>$1,$(addprefix PKG@@,$(sort $2)): $$(if $$(__deps),$(addprefix PKG@@,$(sort $3))) ; @echo 'PKG@@$(word 1,$2)')
 
 
 # We don't use `.INTERMEDIATE`, since the recipe for `$(database_processed_file)` moves this file rather than deleting it.
@@ -358,6 +358,8 @@ $(database_processed_file): $(database_tmp_file)
 		$(call var,_local_db_files := $(sort $(call safe_wildcard,$(desc_pattern))))\
 		$(call var,_local_pkg_list :=)\
 		$(call var,_local_pkg_list_with_aliases :=)\
+		$(call, ### All packages mentioned as dependencies are collected here. Sometimes it can have packages from other MSYS2 environments, which we replace with stubs)\
+		$(call var,_local_dep_list :=)\
 		$(call var,_local_dupe_check_list :=)\
 		$(call var,_local_conflict_resolutions := $(if $(call file_exists,$(database_alternatives_file)),$(call safe_shell,cat $(call quote,$(database_alternatives_file)))))\
 		$(call var,_local_non_overriden_canonical_pkg_names := $(filter-out $(foreach x,$(_local_conflict_resolutions),$(word 1,$(subst :, ,$x))),$(call strip_ver,$(call desc_file_to_name_ver,$(_local_db_files)))))\
@@ -367,7 +369,7 @@ $(database_processed_file): $(database_tmp_file)
 			$(call var,_local_name_ver := $(call desc_file_to_name_ver,$x))\
 			$(call var,_local_name := $(call strip_ver,$(_local_name_ver)))\
 			$(call var,_local_file := $(call safe_shell,cat $(call quote,$x)))\
-			$(call var,_local_deps := $(call extract_section,%DEPENDS%,$(_local_file)))\
+			$(call var,_local_deps := $(call strip_ver_cond,$(call extract_section,%DEPENDS%,$(_local_file))))\
 			$(call var,_local_aliases := $(filter-out $(_local_name),$(call strip_ver_cond,$(call extract_section,%PROVIDES%,$(_local_file)))))\
 			$(call var,_local_aliases := $(foreach y,$(_local_aliases),$(if $(filter $y,$(_local_non_overriden_canonical_pkg_names)),\
 				$(call print_log,Note: package '$y' has alternative '$(_local_name)'.)$(call var,_local_had_any_conflicts := y),\
@@ -392,10 +394,17 @@ $(database_processed_file): $(database_tmp_file)
 				$(file >>$@,)\
 				$(call var,_local_pkg_list += $(_local_name))\
 				$(call var,_local_pkg_list_with_aliases += $(_local_lhs))\
+				$(call var,_local_dep_list += $(_local_deps))\
 			,\
 				$(call print_log,Note: package '$(_local_name)' is inaccessible because of the selected alternatives.)\
 			)\
 		)\
+		$(call, ### Write stubs for unknown dependencies.)\
+		$(file >>$@,# Unknown deps:$(lf))\
+		$(call var,_local_bad_deps := $(filter-out $(_local_pkg_list_with_aliases),$(_local_dep_list)))\
+		$(file >>$@,.PHONY: $(_local_bad_deps))\
+		$(file >>$@,$(addprefix PKG@@,$(_local_bad_deps)):)\
+		$(file >>$@,$(lf))\
 		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
 		$(file >>$@,override FULL_ALIAS_LIST := $(sort $(_local_pkg_list_with_aliases)))\
 		$(if $(_local_had_any_conflicts),\

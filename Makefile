@@ -322,6 +322,10 @@ $(database_tmp_file):
 	$(if $(call use_wget,$(REPO_DB_URL),$@),$(error Unable to download the database. Try again with `--trace` to debug))
 	@true
 
+
+# Skip downloading new keyring when updating the database. `make reparse-database` uses this internally.
+__no_update_keyring := 0
+
 # The target that parses the database info a helper makefile.
 # We perform some conflict resolution on the packages here: sometimes two packages have the same alias,
 #   or even a name of a package is an alias of a different one. In that case we strip the alias from one of the packages.
@@ -339,7 +343,8 @@ $(database_processed_file): $(database_tmp_file)
 		$(call print_log,The database has not changed.)\
 		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file)))\
 	,\
-		$(sig_update_keyring)\
+		$(call, ### Update keyring if: __no_update_keyring is 0 [default], OR if there's no keyring)\
+		$(if $(and $(filter-out 0,$(__no_update_keyring)),$(call file_exists,$(sig_keyring_path))),,$(sig_update_keyring))\
 		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_sig)))\
 		$(if $(call use_wget,$(REPO_DB_SIG_URL),$(database_tmp_file_sig)),$(error Unable to download the database signature. Try again with `--trace` to debug))\
 		$(call sig_verify,$(database_tmp_file),$(database_tmp_file_sig))\
@@ -852,8 +857,8 @@ $(call act, reparse-database \
 ,,Reparse the database. Use this to update the database after\
 $(lf)changing `$(database_alternatives_file)`$(comma) otherwise it shouldn't be necessary.)
 	$(call safe_shell_exec,rm -f $(call quote,$(database_processed_file)))
-	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_original)) $(call quote,$(database_tmp_file)) || true)
-	$(call safe_shell_exec,$(MAKE) 1>&2 $(call quote,$(database_processed_file)))
+	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_original)) $(call quote,$(database_tmp_file)) 2>/dev/null || true)
+	$(call safe_shell_exec,$(MAKE) 1>&2 __no_update_keyring=1 $(call quote,$(database_processed_file)))
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
 

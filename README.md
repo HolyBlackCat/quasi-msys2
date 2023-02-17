@@ -44,6 +44,12 @@ Heavily recommended:
 
 * **Wine** to transparently run Windows programs.
 
+On Ubuntu, you can use following to install dependencies:
+```
+sudo apt install make wget tar zstd gpg wine
+bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+```
+
 ## Features of `env/shell.sh`
 
 Running `env/shell.sh` opens a Bash shell configured for cross-compiling. In this shell:

@@ -70,7 +70,7 @@ Running `env/shell.sh` opens a Bash shell configured for cross-compiling. In thi
 
 ## Environments
 
-Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/environments/). `MINGW64` is the default. [See below](#not-so-frequently-asked-questions) for more details.
+Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/environments/). `UCRT64` is the default. [See below](#not-so-frequently-asked-questions) for more details.
 
 ## Package manager usage
 

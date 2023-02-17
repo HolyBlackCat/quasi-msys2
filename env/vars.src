@@ -28,7 +28,7 @@ __dummy_func() {
     [[ $QUASI_MSYS2_QUIET ]] || echo "QUASI_MSYS2_ROOT = $QUASI_MSYS2_ROOT"
     [[ $QUASI_MSYS2_QUIET ]] || echo ''
 
-    # `MSYSTEM_PREFIX` is an MSYS2-style variable points to the MinGW installation path, i.e. `root/mingw64`.
+    # `MSYSTEM_PREFIX` is an MSYS2-style variable points to the MinGW installation path, i.e. `root/ucrt64`.
     # We load its default value from the primary makefile, but we optionally prefix it with the proper absolute path, unless it already exists as a symlink.
     if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"; then
         echo 'Found symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`, will use it.'
@@ -202,7 +202,7 @@ __dummy_func() {
     [[ $QUASI_MSYS2_QUIET ]] || echo "CONFIG_SITE = $CONFIG_SITE"
 
     # Pkg-config will look for packages in this directory.
-    # The value was taken from MSYS2, except `/mingw64` was replaced with `$MSYSTEM_PREFIX`.
+    # The value was taken from MSYS2, except `/ucrt64` was replaced with `$MSYSTEM_PREFIX`.
     export "PKG_CONFIG_PATH=$MSYSTEM_PREFIX/lib/pkgconfig:$MSYSTEM_PREFIX/share/pkgconfig"
     [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
 
@@ -218,7 +218,7 @@ __dummy_func() {
 
     # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.
     # MSYS2 also stores a second path in it, `/usr/share/aclocal` (separated by a `:`), but we probably shouldn't add it forcefully if it's not already there.
-    # Since one of the paths MSYS2 stores in it doesn't start with `/mingw64`, it seemed logical to me to append to this variable rather than overwriting it.
+    # Since one of the paths MSYS2 stores in it doesn't start with `/ucrt64`, it seemed logical to me to append to this variable rather than overwriting it.
     local new_aclocal_path="$(make -f "$QUASI_MSYS2_ROOT/env/internal/AddToPath.mk" "var=ACLOCAL_PATH" "dirs=$MSYSTEM_PREFIX/share/aclocal")"
     test -z "$new_aclocal_path" && return
     export "ACLOCAL_PATH=$new_aclocal_path"

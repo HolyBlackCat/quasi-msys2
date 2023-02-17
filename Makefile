@@ -23,8 +23,8 @@ CALL_ON_PKG_CHANGE :=
 # The `MSYSTEM` variable determines the MSYS2 flavor. The value is loaded from a file.
 # It's recommended to change this file in a clean repo, before downloading any packages. Or at least by running make `remove-all-packages` first.
 MSYSTEM := $(file <msystem.txt)
-# Default to MSYSTEM=MINGW64 if the file is missing.
-$(if $(MSYSTEM),,$(eval MSYSTEM := MINGW64))
+# Default to MSYSTEM=UCRT64 if the file is missing.
+$(if $(MSYSTEM),,$(eval MSYSTEM := UCRT64))
 
 # Mirror URL. You can pass a custom mirror, or pass an empty string to use the primary repo.
 MIRROR_URL := https://mirror.msys2.org
@@ -82,7 +82,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.5.2
+override version := 1.6
 
 
 # --- GENERIC UTILITIES ---
@@ -1161,9 +1161,9 @@ $(if $(display_help),\
 	$(info MSYS2 supports several different target platforms, each with its own set of packages.)\
 	$(info To select a platform, create a file called `msystem.txt` and put)\
 	$(info one of the following into it:)\
-	$(info * `MINGW64` for Windows x64 (default))\
-	$(info * `MINGW32` for Windows x32)\
-	$(info * `UCRT64` for Windows x64 with ucrtbase.dll)\
+	$(info * `UCRT64`  (default))\
+	$(info * `MINGW64`, `MINGW32` (uses legacy `msvcrt.dll`))\
+	$(info * `CLANG64`, `CLANG32` (clang and libc++ only))\
 	$(info For the exact list of platforms, see the beginning of the `Makefile`.)\
 	$(info )\
 	)

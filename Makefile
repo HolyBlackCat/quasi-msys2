@@ -82,7 +82,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.1
+override version := 1.6.3
 
 
 # --- GENERIC UTILITIES ---
@@ -694,12 +694,16 @@ override pkg_set_request_list = $(call safe_shell_exec,echo >$(call quote,$(requ
 # $1 is a list of packages, without versions. Emits an error if any packages in $1 are in the requested list.
 override pkg_stop_if_in_request_list = \
 	$(call var,_local_delta := $(sort $(filter $1,$(pkg_request_list))))\
-	$(if $(_local_delta),$(error Following packages are already requested: $(_local_delta)))
+	$(if $(_local_delta),$(error Following packages are already requested: $(_local_delta)\
+		$(lf)If the installation was interrupted, run `$(self) apply-delta` to recover)\
+	)
 
 # $1 is a list of packages, without versions. Emits an error if any packages in $1 are not in the requested list.
 override pkg_stop_if_not_in_request_list = \
 	$(call var,_local_delta := $(sort $(filter-out $(pkg_request_list),$1)))\
-	$(if $(_local_delta),$(error Following packages are already not requested: $(_local_delta)))
+	$(if $(_local_delta),$(error Following packages are already not requested: $(_local_delta)\
+		$(lf)If the removal was interrupted, run `$(self) apply-delta` to recover)\
+	)
 
 # --- PACKAGE MANAGEMENT INTERFACE ---
 

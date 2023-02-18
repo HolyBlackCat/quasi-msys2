@@ -82,13 +82,16 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6
+override version := 1.6.1
 
 
 # --- GENERIC UTILITIES ---
 
 # Disable parallel builds.
 .NOTPARALLEL:
+
+# This is not only for looks. The extra junk text confuses our code when we query package database.
+MAKEFLAGS += --no-print-directory
 
 
 # Display name of our executable, to give to the user.

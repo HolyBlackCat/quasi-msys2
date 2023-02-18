@@ -32,6 +32,9 @@ ifeq ($(MIRROR_URL),)
 override MIRROR_URL := https://repo.msys2.org/
 endif
 
+# If true, we're running from the build shell.
+override running_in_build_env := $(if $(MSYSTEM_PREFIX),y)
+
 ifeq ($(MSYSTEM),MINGW64)
 # URL of the repository database.
 REPO_DB_URL := $(MIRROR_URL)/mingw/x86_64/mingw64.db
@@ -82,7 +85,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.3
+override version := 1.6.4
 
 
 # --- GENERIC UTILITIES ---
@@ -95,7 +98,7 @@ MAKEFLAGS += --no-print-directory
 
 
 # Display name of our executable, to give to the user.
-ifeq ($(MSYSTEM_PREFIX),)
+ifeq ($(running_in_build_env),)
 override self := make
 else
 # We're in a build shell, give user the name of the wrapper.

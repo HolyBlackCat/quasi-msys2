@@ -1,6 +1,6 @@
 ## quasi-msys2
 
-A small and easy to use Linux-to-Windows cross-compilation environment, utilizing prebuilt packages from [MSYS2 repos](https://packages.msys2.org/package/).
+A Linux-to-Windows cross-compilation environment, utilizing prebuilt libraries from [MSYS2 repos](https://packages.msys2.org/package/).
 
 The goal is to mimic MSYS2, but on Linux.
 
@@ -11,72 +11,41 @@ The goal is to mimic MSYS2, but on Linux.
 * The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
 * The installation directory is entirely self-contained.
 
-## Example usage
+## Usage
 
-```bash
-git clone https://github.com/holyblackcat/quasi-msys2
-cd quasi-msys2
-make install _gcc _gdb # same as `make install mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb`
-env/shell.sh
+* Install dependencies: (this is for Ubuntu 22.04; adjust for your Linux distribution)
+  ```bash
+  sudo apt install make wget tar zstd gpg wine # Wine is optional but recommended.
+  # Install Clang and LLD (recommended)
+  bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+  ```
+* Install quasi-msys2:
+  ```bash
+  git clone https://github.com/holyblackcat/quasi-msys2
+  cd quasi-msys2
+  make install _gcc _gdb # same as `make install mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb`
+  ```
+  For selecting MSYS2 compiler flavor, [see this](#not-so-frequently-asked-questions).
+* Open quasi-msys2 shell:
+  ```bash
+  env/shell.sh
+  ```
+  This adds MSYS2 packages to `PATH`, and sets some environment variables.
+* Build:
+  * Manually:
+    ```bash
+    $CXX 1.cpp # Uses Clang if you have it, otherwise runs MSYS2 compiler using Wine.
+    ./a.exe # Works if you installed Wine.
+    ```
+  * With Autotools: just `./configure && make`, no extra configuration is needed.
+  * With CMake: just run `cmake` as usual, no extra configuration is needed.
 
-$CXX 1.cpp
-./a.exe
-```
+  Both CMake and Autotools will think they perform a native Windows build, thanks to [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc), which transparently calls Wine to run Windows executables.
 
-
-If you have Clang installed (this is recommended), `$CC` and `$CXX` will invoke it with the right flags for cross-compilation. (`make install _gcc` is still needed for the libraries it provides)
-
-If you don't have Clang, it will fall back to running MSYS2's GCC (or Clang) using Wine.
-
-In the shell launched by `env/shell.sh`, commands like `pkg-config` and `cmake` work like you would expect. There is also `win-gdb` (replaces `gdb`) and `win-ldd` (replaces `ntldd -R`).
-
-Executables from the installed MSYS2 packages will be in the PATH (will be invoked with Wine).
-
-## Prerequisites
-
-Mandatory:
-
-* `make`, `wget`, `tar`, `zstd`, `gpg`
-
-Heavily recommended:
-
-* **Clang** and **LLD**, to cross-compile for Windows. You can use MSYS2 GCC and Clang as well (with Wine), but a native Clang is much faster.
-
-* **Wine** to transparently run Windows programs.
-
-On Ubuntu, you can use following to install dependencies:
-```
-sudo apt install make wget tar zstd gpg wine
-bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-```
-
-## Features of `env/shell.sh`
-
-Running `env/shell.sh` opens a Bash shell configured for cross-compiling. In this shell:
-
-* `pacmake` lets you access to the package manager (outside of this shell, use `make` in the installation directory).
-
-* `.exe` files are invoked transparently with Wine, with the help of [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc). This works everywhere, until a reboot.
-
-* Any executables from the installed packages are available (in the PATH, and will be invoked with Wine).
-
-* `cmake` and `pkg-config` do the right thing, without any extra flags.
-
-* Environment variables are set for `./configure` (GNU autotools) to do the right thing, without any extra flags.
-
-* Both Cmake and Autotools are made to think that we're performing a native build.
-
-* Certain wrappers are provided:
-
-  * `win-clang` and `win-clang++` invoke your native Clang with the right flags for cross-compilation. If Clang is available, `$CC` and `$CXX` default to `win-clang` and `win-clang++`.
-
-  * `win-gdb` invokes MSYS2's `gdb` in a separate Wineconsole window (it doesn't work in the regular terminal).
-
-  * `win-ldd` invokes MSYS2's `ntldd -R` and converts the path to unix-style. If you want wine-flavored paths, use `ntldd -R` directly.
-
-## Environments
-
-Quasi-MSYS2 supports different [MSYS2 environments](https://www.msys2.org/docs/environments/). `UCRT64` is the default. [See below](#not-so-frequently-asked-questions) for more details.
+* Other tools that work in `env/shell.sh`:
+  * `pkg-config`
+  * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
+  * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
 
 ## Package manager usage
 
@@ -92,7 +61,7 @@ Here are some common ones:
 * `make install <packages>` - Install packages.<br>
   The packages are installed to the `./root/`.
 
-  <sup>Most package names share a common prefix: `mingw-w64-x86_64-gcc mingw-w64-x86_64-clang ...`. You can use `_` instead of this long prefix, e.g. `make install _gcc` instead of `make install mingw-w64-x86_64-gcc`.</sup>
+  <sup>Most package names share a common prefix: `mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-clang ...`. You can use `_` instead of this long prefix, e.g. `make install _gcc` instead of `make install mingw-w64-ucrt-x86_64-gcc`.</sup>
 
 * `make remove <packages>` - Remove packages.
 
@@ -105,45 +74,19 @@ Here are some common ones:
 
 * `make list-req` - List only those installed packages that were explicitly requested, rather than being automatically installed as a dependency.
 
-**Fixing problems**
+* `make apply-delta` - Resume interrupted package installation/removal.
 
-Sometimes the installation can become inconsistent. This usually happens if you interrupt `make`, or if something goes wrong.
+* `make reinstall-all` - Reinstall all packages, if you screwed up your installation.
 
-This means that one or more packages are queued for installation, update, or removal.
+* Previewing changes before applying them:
 
-Normally this is fixed automatically, but you can also do it manually:
+  Normally the packages are installed immediately without asking. If you want to check what will be installed first, you can do following:
 
-* `make delta` - Check the installation, and list the queued actions. If you get no output, your installation is consistent.
+  * Instead of `make upgrade`, do `make update` and `make delta` to list the changes. Then `make apply-delta` to apply.
 
-  The output is a list of packages, with prefixes: `+` for packages to be installed, `-` for packages to be removed, `>` for packages to be updated.
+  * Instead of `make install ...`, do `make request ...` and `make delta` to list the changes. Then `make apply-delta` to apply or `make undo-request ...` to back out.
 
-* `make apply-delta` - Fix the installation by applying the necessary the changes as displayed by `make delta`.
-
-  This is done automatically by most high-level commands, such as `upgrade`, `install`, and `remove`.
-
-If you messed up your installation beyond repair, use `make reinstall-all` to purge everything and reinstall all packages.
-
-**Advanced usage**
-
-Basic commands listed above are too crude in some cases.
-
-E.g. `make upgrade` doesn't let you review the updates before installing them, and `make install` doesn't tell you what dependencies it's going to install.
-
-This can be solved using several more advanced commands listed below. Most of them make the installation inconsistent, and require running `make apply-delta` to apply the changes.
-
-* `make update` - Download a new repository database, but don't do anything else.
-
-  If followed by `apply-delta`, this is roughly equivalent to `upgrade` (which additionally cleans up a few things).
-
-* `make request <packages>` - Signal that you want a package to be installed, but don't actually install it.
-
-  If followed by `apply-delta`, this is equivalent to `install`.
-
-* `make undo-request <packages>` - Signal that you no longer want a package to be installed, but don't actually remove it even if it's installed.
-
-  If followed by `apply-delta`, this is equivalent to `remove`.
-
-The list above contains only the most common commands. See `make help` for more.
+  * Instead of `make remove ...`, do `make undo-request ...` and `make delta` to list the changes. Then `make apply-delta` to apply or `make request ...` to back out.
 
 **Known issues**
 

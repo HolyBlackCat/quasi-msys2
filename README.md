@@ -1,15 +1,20 @@
 ## quasi-msys2
 
-A Linux-to-Windows cross-compilation environment, utilizing prebuilt libraries from [MSYS2 repos](https://packages.msys2.org/package/).
+A Linux-to-Windows cross-compilation environment. Imitates [MSYS2](https://www.msys2.org/) (which is Windows-only) on Linux.
 
-The goal is to mimic MSYS2, but on Linux.
+Features:
 
-* MinGW-based packages (compilers, libraries, etc) are downloaded from MSYS2 repos.
+* [Huge amount of prebuilt libraries](https://packages.msys2.org/package/), and [several MinGW flavors](https://www.msys2.org/docs/environments/) (all of this comes from the MSYS2 project).
+* Provides environment very similar to MSYS2 you'd have on Windows. If your code builds on MSYS2, it should build on Quasi-MSYS2 as is, and vice versa.
+* Linux-distribution-agnostic.
+* The installation is self-contained.
+
+Here's how it works:
+
+* MinGW-based packages (compilers, libraries, etc) are downloaded from the MSYS2 repos.
 * Cygwin-based packages are not available (since Cygwin doesn't work well under Wine, if at all), but their native equivalents should be enough.
-* `pacman` is replaced with a tiny custom package manager (since `pacman` itself is Cygwin-based).
-* [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine.
-* The environment is set up to trick CMake and Autotools into thinking that they're doing native Windows builds.
-* The installation directory is entirely self-contained.
+* `pacman` is replaced with a small custom package manager (since `pacman` itself is Cygwin-based).
+* Optionally, [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine, and we convince CMake and Autotools that we're doing a native Windows build.
 
 ## Usage
 
@@ -115,7 +120,7 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
     * The environment can be changed using `echo DesiredEnvName >msystem.txt`, preferably in a clean repository. If you want multiple environments, you need multiple copies of Quasi-MSYS2.
 
-      All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in.)
+      All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in, since Cygwin doesn't seem to work with Wine. Also `CLANGARM64` wasn't tested at all.)
 
       On `CLANG64` and `CLANG32`, when using the native Clang, it's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On those, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
 

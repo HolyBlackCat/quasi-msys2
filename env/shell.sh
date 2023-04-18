@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Opens a new Bash shell and runs `source env/all.src` in it.
+
 # Make a dummy function to be able to have local variables.
 __dummy_func() {
     # Helper variable pointing to the env scripts directory.
@@ -12,7 +14,7 @@ __dummy_func() {
     #   extra unnecessary sub-shell. Without it, `SHLVL` (shell nesting depth) would increase by 2 instead of the optimal 1.
     # Note the use of `--init-file ...`. An alternative is `source ...; exec bash`, but the problem with it is
     #   that bash would run some init scripts, overriding our custom value of `PS1` and who knows what else.
-    exec bash --init-file "$env_path/all_quiet.src"
+    exec bash --init-file "$env_path/all.src"
 }
 # Call our dummy funcion.
 __dummy_func

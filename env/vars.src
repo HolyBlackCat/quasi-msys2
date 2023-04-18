@@ -1,6 +1,8 @@
 #!/bin/false
 # The above line stops anyone from running this script normally, but allows `source`ing it.
 
+# This script configures environment variables for Quasi-MSYS2. Run it with `source` from Bash.
+
 # Make a dummy function to be able to have local variables.
 __dummy_func() {
     # Stop this script from running more than once.

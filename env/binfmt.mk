@@ -1,3 +1,6 @@
+# Configures the Linux kernel to transparently run Windows apps via Wine.
+# The effects are undone on a reboot.
+
 # We have to use bash to be able to use the nice version of `read`.
 SHELL := bash
 

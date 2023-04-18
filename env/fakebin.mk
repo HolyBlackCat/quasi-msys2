@@ -1,3 +1,7 @@
+# Creates wrappers for installed `.exe` files.
+# E.g. for `foo.exe` you get `foo`, which is a small shell script that just starts `foo.exe`.
+# MSYS2 shell automatically adds `.exe` when searching for commands, so we do this to imitate its behavior.
+
 # A space-separated list of programs that must not have fakebin wrappers.
 # Most are blacklisted because native equivalents work equally well.
 # `pkg-config` is blacklisted because it outputs WINE-style paths.

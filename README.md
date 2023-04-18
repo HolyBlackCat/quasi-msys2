@@ -30,12 +30,13 @@ Here's how it works:
   cd quasi-msys2
   make install _gcc _gdb # same as `make install mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb`
   ```
-  For selecting MSYS2 compiler flavor, [see this](#not-so-frequently-asked-questions).
+  For selecting MSYS2 compiler flavor, [see FAQ](#how-do-i-use-different-msys2-environments).
 * Open quasi-msys2 shell:
   ```bash
   env/shell.sh
   ```
-  This adds MSYS2 packages to `PATH`, and sets some environment variables.
+  This adds MSYS2 packages to `PATH`, and sets some environment variables. For non-interactive use, see [this](#how-do-i-run-commands-non-interactively).
+
 * Build:
   * Manually:
     ```bash
@@ -116,28 +117,43 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
 ## Not-so-frequently asked questions
 
-  * How do I use different [MSYS2 environments](https://www.msys2.org/docs/environments/)?
+### How do I run commands non-interactively?
 
-    * The environment can be changed using `echo DesiredEnvName >msystem.txt`, preferably in a clean repository. If you want multiple environments, you need multiple copies of Quasi-MSYS2.
+`env/shell.sh` works best for interactive use.
 
-      All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in, since Cygwin doesn't seem to work with Wine. Also `CLANGARM64` wasn't tested at all.)
+If you want to run commands non-interactively (an in from shell scripts), do this:
 
-      On `CLANG64` and `CLANG32`, when using the native Clang, it's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On those, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
+```sh
+bash -c 'source env/all.src && my_command'
+```
 
-  * How do I add a desktop entry for the quasi-msys2 shell?
-    * Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
+If you don't want certain components of the environment, you can study `all.src` and run desired components manually. (E.g. if you don't want `binfmt_misc`.)
 
-  * Using LD instead of LLD when compiling with the native Clang.
-    * I started having problems with the native LD after some MSYS2 update (it produces broken executables), so we default to LLD.
+### How do I use different [MSYS2 environments](https://www.msys2.org/docs/environments/)?
 
-      Last tested on LD 2.34, a more recent version might work.
+The environment can be changed using `echo DesiredEnvName >msystem.txt`, preferably in a clean repository. If you want multiple environments, you need multiple copies of Quasi-MSYS2.
 
-      LD shipped by MSYS2 (was LD 2.37 last time I checked) works under Wine. If `binfmt_misc` is enabled, you can switch to it using `-fuse-ld=$MSYSTEM_PREFIX/bin/ld.exe`.
+All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in, since Cygwin doesn't seem to work with Wine. Also `CLANGARM64` wasn't tested at all.)
 
-      You can try the native LD using `-fuse-ld=ld`. (Or remove `-fuse-ld=lld` from `WIN_CLANG_FLAGS` variable.)
+On `CLANG64` and `CLANG32`, when using the native Clang, it's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On those, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
 
-  * My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
-    * Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.
+### How do I add a desktop entry for the quasi-msys2 shell?
+
+Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
+
+### Using LD instead of LLD when compiling with the native Clang.
+
+I started having problems with the native LD after some MSYS2 update (it produces broken executables), so we default to LLD.
+
+Last tested on LD 2.34, a more recent version might work.
+
+LD shipped by MSYS2 (was LD 2.37 last time I checked) works under Wine. If `binfmt_misc` is enabled, you can switch to it using `-fuse-ld=$MSYSTEM_PREFIX/bin/ld.exe`.
+
+You can try the native LD using `-fuse-ld=ld`. (Or remove `-fuse-ld=lld` from `WIN_CLANG_FLAGS` variable.)
+
+### My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
+
+Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.
 
 
 ## Installation structure
@@ -188,9 +204,9 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
   * `vars.src` — Sets up environment variables, including `PATH`. Must be run as `source path/to/vars.src`.
 
-  * `all_quiet.src` — Runs all the files above, in quiet mode. Must be run as `source path/to/all_quiet.src`.
+  * `all.src` — Runs all the files above, in quiet mode. Must be run as `source path/to/all.src`.
 
-  * `shell.sh` — Creates a new Bash shell and runs `source all_quiet.src` in it. Do `exit` to return to the original shell.
+  * `shell.sh` — Creates a new Bash shell and runs `source all.src` in it. Do `exit` to return to the original shell.
 
   * `integration.mk` — Generates a desktop file for the Quasi-MSYS2 shell.
 

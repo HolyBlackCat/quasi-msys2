@@ -24,6 +24,8 @@ Here's how it works:
   # Install Clang and LLD (recommended)
   bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
   ```
+  NOTE: If you get strange errors, update your Make. Version 4.3 and newer are known to work.
+
 * Install quasi-msys2:
   ```bash
   git clone https://github.com/holyblackcat/quasi-msys2

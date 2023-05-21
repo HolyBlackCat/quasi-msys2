@@ -85,7 +85,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.4
+override version := 1.6.5
 
 
 # --- GENERIC UTILITIES ---
@@ -162,6 +162,9 @@ override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))
 #override remove_suffix = $(subst $(lastword $(subst $1, ,$2)<<<),,$2<<<)
 override remove_suffix = $(subst <<<,,$(subst $1$(lastword $(subst $1, ,$2)<<<),<<<,$2<<<))
 
+# Removes duplicates from the list $1 without sorting it.
+override uniq_no_sort = $(if $1,$(firstword $1) $(call uniq_no_sort,$(filter-out $(firstword $1),$1)))
+
 
 # --- CHECK PRECONDITIONS ---
 
@@ -212,9 +215,10 @@ ifneq ($(filter-out 0 1,$(words $(MAKECMDGOALS))),)
 $(if $(filter __database_%,$(MAKECMDGOALS)),,\
 	$(call var,p_is_set := y)\
 	$(call var,p := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))\
-	$(foreach x,$p,$(eval .PHONY: $x)$(eval $x: ; @true))\
+	$(foreach x,$(sort $p),$(eval .PHONY: $x)$(eval $x: ; @true))\
 	$(call var,p := $(patsubst _%,$(REPO_PACKAGE_COMMON_PREFIX)%,$p))\
-	)
+	$(call var,p := $(strip $(call uniq_no_sort,$p)))\
+)
 endif
 
 
@@ -416,8 +420,8 @@ $(database_processed_file): $(database_tmp_file)
 		$(if $(_local_had_any_conflicts),\
 			$(call print_log,Note: see `$(self) help` for instructions on changing alternatives.)\
 		)\
-    	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))\
-    	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_sig)) $(call quote,$(database_tmp_file_original_sig)))\
+		$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))\
+		$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_sig)) $(call quote,$(database_tmp_file_original_sig)))\
 	)
 	$(call safe_shell_exec,rm -rf './$(database_tmp_dir)/')
 	$(if $(_local_bad_conflict_resolutions),\

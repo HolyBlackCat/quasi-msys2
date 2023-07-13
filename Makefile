@@ -85,7 +85,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.5
+override version := 1.6.6
 
 
 # --- GENERIC UTILITIES ---
@@ -592,7 +592,7 @@ override cache_find_pkg_archive = $(call var,_local_file = $(firstword $(foreach
 # Outputs the list of contained files, without folders, with spaces replaced with `<`.
 # Note `set -o pipefail`, without it we can't detect failure of lhs of the `|` shell operator.
 # Note `bash -c`. We can't use the default shell (`sh`, which is a symlink for `dash` on Ubuntu), because it doesn't support `pipefail`.
-override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o pipefail && tar -tf $(call quote,$(call cache_find_pkg_archive,$x)) --exclude='.*' | grep '[^/]$$' | sed 's| |<|g'"))
+override cache_list_pkg_files = $(foreach x,$1,$(call safe_shell,bash -c "set -o pipefail && tar -tf $(call quote,$(call cache_find_pkg_archive,$x)) --exclude='.*' | (grep '[^/]$$'; (($$? >= 0 && $$? <= 1))) | sed 's| |<|g'"))
 
 # Lists current packages sitting in the cache.
 override cache_list_current = \
@@ -659,6 +659,8 @@ override index_force_install = \
 		$(call cache_want_packages,$p)\
 		$(call var,_local_files := $(call cache_list_pkg_files,$p))\
 		$(foreach x,$(_local_files),$(if $(call file_exists,$(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
+		$(call, ### This creates the file if it doesn't exist, even if `_local_files` is empty. This is necessary for empty packages, such as `_autotools`.)\
+		$(file >$(index_dir)/$(index_broken_prefix)$p)\
 		$(foreach x,$(_local_files),$(file >>$(index_dir)/$(index_broken_prefix)$p,$x))\
 		$(call print_log,Extracting '$p'...)\
 		$(call safe_shell_exec,tar -C $(call quote,$(ROOT_DIR)) -xf $(call quote,$(call cache_find_pkg_archive,$p)) --exclude='.*')\

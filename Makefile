@@ -2,7 +2,7 @@
 
 # Suffix of the package archives, such as `-any.pkg.tar.zst`.
 # Can be a space-separated lists of such suffixes, those will be tried in the specified order when downloading packages.
-# At some point pacman switched from `.tar.zst` to `.tar.xz`, but MSYS2 repos still have `.tar.xz` around for old packages, so we have to support both.
+# At some point pacman switched from `.tar.xz` to `.tar.zst`, but MSYS2 repos still have `.tar.xz` around for old packages, so we have to support both.
 REPO_PACKAGE_ARCHIVE_SUFFIXES := -any.pkg.tar.zst -any.pkg.tar.xz
 
 # Extract packages here.
@@ -29,7 +29,7 @@ $(if $(MSYSTEM),,$(eval MSYSTEM := UCRT64))
 # Mirror URL. You can pass a custom mirror, or pass an empty string to use the primary repo.
 MIRROR_URL := https://mirror.msys2.org
 ifeq ($(MIRROR_URL),)
-override MIRROR_URL := https://repo.msys2.org/
+override MIRROR_URL := https://repo.msys2.org
 endif
 
 # If true, we're running from the build shell.
@@ -73,19 +73,19 @@ else
 $(error Unknown MSYSTEM: $(MSYSTEM))
 endif
 
-# Database signature URL.
-REPO_DB_SIG_URL := $(REPO_DB_URL).sig
-
 # To add more `MSYSTEM`s:
 # * Find the appropriate repository at: http://repo.msys2.org/mingw/
 # * Copy variables from: https://github.com/msys2/MSYS2-packages/blob/master/filesystem/msystem
+
+# Database signature URL.
+REPO_DB_SIG_URL := $(REPO_DB_URL).sig
 
 # The keys are downloaded from here.
 KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys2.gpg
 
 
 # --- VERSION ---
-override version := 1.6.6
+override version := 1.6.7
 
 
 # --- GENERIC UTILITIES ---
@@ -159,7 +159,6 @@ override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))
 # Removes the last occurence of $1 in $2, and everything that follows.
 # $2 has to contain no spaces (same for $1).
 # If $1 is not found in $2, returns $2 without changing it.
-#override remove_suffix = $(subst $(lastword $(subst $1, ,$2)<<<),,$2<<<)
 override remove_suffix = $(subst <<<,,$(subst $1$(lastword $(subst $1, ,$2)<<<),<<<,$2<<<))
 
 # Removes duplicates from the list $1 without sorting it.
@@ -210,7 +209,7 @@ override stop_if_have_parameters = $(if $(p_is_set),$(error This action requires
 # If more than one parameter is specified...
 ifneq ($(filter-out 0 1,$(words $(MAKECMDGOALS))),)
 # If it's a database query, do nothing.
-# Otherwise, convert all targets after the first one to paramters. Also replace `_` with a proper prefix.
+# Otherwise, convert all targets after the first one to parameters. Also replace `_` with a proper prefix.
 # Also create a list of fake empty recipes for those targets.
 $(if $(filter __database_%,$(MAKECMDGOALS)),,\
 	$(call var,p_is_set := y)\

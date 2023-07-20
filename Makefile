@@ -11,9 +11,10 @@ ROOT_DIR := root
 # Download archives here.
 CACHE_DIR := cache
 
-# If nonzero, don't delete the original database downloaded from the repo, and the temporary files created when parsing it.
-# Useful for debugging the database parser.
-KEEP_UNPROCESSED_DATABASE := 0
+# Those flags are passed to `wget` when downloading packages and other files.
+WGET_FLAGS :=
+# If false, won't pass any custom flags other than `WGET_FLAGS`.
+WGET_ALLOW_DEFAULT_FLAGS := 1
 
 # The contents of this variable are called as a shell command after any changes to the packages are made.
 CALL_ON_PKG_CHANGE :=
@@ -85,7 +86,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.7
+override version := 1.6.8
 
 
 # --- GENERIC UTILITIES ---
@@ -151,7 +152,7 @@ override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,
 
 # Downloads url $1 to file $2.
 # On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.
-override use_wget = $(filter-out 0,$(call shell_status,wget $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,-q) -c --show-progress -O $(call quote,$2) || (rm -f $(call quote,$2) && false)))
+override use_wget = $(filter-out 0,$(call shell_status,wget $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,-q) $(if $(call boolean,WGET_ALLOW_DEFAULT_FLAGS),-c --show-progress) $(WGET_FLAGS) -O $(call quote,$2) || (rm -f $(call quote,$2) && false)))
 
 # Prints $1 to stderr.
 override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))
@@ -163,6 +164,9 @@ override remove_suffix = $(subst <<<,,$(subst $1$(lastword $(subst $1, ,$2)<<<),
 
 # Removes duplicates from the list $1 without sorting it.
 override uniq_no_sort = $(if $1,$(firstword $1) $(call uniq_no_sort,$(filter-out $(firstword $1),$1)))
+
+# Given a variable name $1, returns empty if it's 0, non-empty if 1, or an error otherwise.
+override boolean = $(if $(or $(findstring $($1),0),$(findstring $($1),1)),,$(error $1 must be 0 or 1))$(subst 0,,$($1))
 
 
 # --- CHECK PRECONDITIONS ---

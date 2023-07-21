@@ -57,7 +57,7 @@ __dummy_func() {
         if test -z "$WIN_CLANG_VER"; then
             export "WIN_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort | tail -1 | sed 's/clang-//')"
             # If we found no suffix OR the executable doesn't exist for some reason, set the suffix to NONE.
-            ( test -z "$WIN_CLANG_VER" || ! which "clang-$WIN_CLANG_VER" "clang++-$WIN_CLANG_VER" "lld-$WIN_CLANG_VER" >/dev/null ) && export "WIN_CLANG_VER=NONE"
+            ( test -z "$WIN_CLANG_VER" || ! which "clang-$WIN_CLANG_VER" "clang++-$WIN_CLANG_VER" "lld-$WIN_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_CLANG_VER=NONE"
             echo '  Guessed Clang version suffix: WIN_CLANG_VER = '"$WIN_CLANG_VER"
             echo '  You can override it by setting it to a number or to `NONE` for no suffix.'
         fi
@@ -70,7 +70,7 @@ __dummy_func() {
         export "WIN_NATIVE_CLANG_CC=clang$clang_ver_suffix"
         export "WIN_NATIVE_CLANG_CXX=clang++$clang_ver_suffix"
 
-        if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "lld$clang_ver_suffix" >/dev/null; then
+        if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "lld$clang_ver_suffix" >/dev/null 2>/dev/null; then
             # Successfully found a native Clang.
             echo "Success! Will use wrappers for the native Clang."
             export "CC=win-clang"
@@ -193,7 +193,7 @@ __dummy_func() {
     # Wine will look for executables in this directory.
     export "WINEPATH=$MSYSTEM_PREFIX/bin"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WINEPATH = $WINEPATH"
-    which wine >/dev/null || echo "$warn""Can't find Wine. If you want to run native executables, it has to be installed."
+    which wine >/dev/null 2>/dev/null || echo "$warn""Can't find Wine. If you want to run native executables, it has to be installed."
 
     # Autotools will read config from that file.
     export "CONFIG_SITE=$QUASI_MSYS2_ROOT/env/config/config.site"
@@ -211,7 +211,9 @@ __dummy_func() {
     [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_SYSROOT_DIR = $PKG_CONFIG_SYSROOT_DIR"
 
     # Disable default pkg-config search paths.
-    export "PKG_CONFIG_LIBDIR="
+    # Note setting it to a random character rather than an empty string. Empty string works on Ubuntu, but e.g. Fedora has a stupid
+    # script in place of `pkg-config` that assigns a default value to this variable if it's undefined OR EMPTY.
+    export "PKG_CONFIG_LIBDIR=-"
     [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_LIBDIR = $PKG_CONFIG_LIBDIR"
 
     # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.

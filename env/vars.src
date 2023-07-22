@@ -257,7 +257,7 @@ __dummy_func() {
     export "MINGW_CHOST=$MSYSTEM_CHOST";
     [[ $QUASI_MSYS2_QUIET ]] || echo -n "MSYSTEM_CHOST=MINGW_CHOST=$MSYSTEM_CHOST; "
     # Finally, copy the MSYS2 prompt.
-    export 'PS1=\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[35m\]$MSYSTEM\[\e[0m\] \[\e[33m\]\w\[\e[0m\]\n\[\e[1m\]#\[\e[0m\] ';
+    export 'PS1=\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[35m\]$MSYSTEM\[\e[0m\] \[\e[33m\]\w\[\e[0m\]\n\[\e[1m\]\$\[\e[0m\] ';
     [[ $QUASI_MSYS2_QUIET ]] || echo "PS1 = ..."
 }
 # Call our dummy funcion.

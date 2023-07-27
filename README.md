@@ -24,7 +24,7 @@ Here's how it works:
   # Install Clang and LLD (recommended)
   bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
   ```
-  NOTE: If you get strange errors, update your Make. Version 4.3 and newer are known to work.
+  NOTE: `make --version` must be 4.3 or newer.
 
 * Install quasi-msys2:
   ```bash
@@ -103,6 +103,8 @@ Here are some common ones:
 * If a package depends on a specific version of some other package, the exact version of that package is not checked. This shouldn't affect you, as long as you don't manually install outdated packages.
 
 * Package conflicts are handled in a crude manner. Information about package conflits provided in the package database is ignored, but if you try to install a package providing a file that already exists, the installation will fail. In most cases this is good enough.
+
+* You can't run several instances of the package manager in the same installation in parallel. There's no locking mechanism, so this can cause weird errors.
 
 ## Backing up the installation
 

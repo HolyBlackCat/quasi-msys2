@@ -86,7 +86,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.8
+override version := 1.6.9
 
 
 # --- GENERIC UTILITIES ---
@@ -274,6 +274,8 @@ override database_processed_file := database.mk
 # A backup for the main database file.
 override database_processed_file_bak := database.mk.bak
 
+# Temporary database file, downloaded directly from the repo, before its signature was validated.
+override database_tmp_file_unverified := database.db.unverified
 # Temporary database file, downloaded directly from the repo.
 override database_tmp_file := database.db
 # Temporary database signature file.
@@ -330,9 +332,18 @@ override code_pkg_target = \
 # We don't use `.INTERMEDIATE`, since the recipe for `$(database_processed_file)` moves this file rather than deleting it.
 .SECONDARY: $(database_tmp_file)
 $(database_tmp_file):
+	$(call, ### Update keyring if: __no_update_keyring is 0 [default], OR if there's no keyring)\
+	$(if $(and $(filter-out 0,$(__no_update_keyring)),$(call file_exists,$(sig_keyring_path))),,$(sig_update_keyring))\
+	$(call, ### Delete target files to avoid wget continuing the old download, to be a bit more robust.)\
+	$(call, ### We don't do this when downloading packages because for those the filename is changed with every new version.)\
+	$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_sig)))\
+	$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_unverified)))\
 	$(call print_log,Downloading package database...)
-	$(call safe_shell_exec,rm -f $(call quote,$@))
-	$(if $(call use_wget,$(REPO_DB_URL),$@),$(error Unable to download the database. Try again with `--trace` to debug))
+	$(if $(call use_wget,$(REPO_DB_SIG_URL),$(database_tmp_file_sig)),$(error Unable to download the database signature. Try again with `--trace` to debug))\
+	$(if $(call use_wget,$(REPO_DB_URL),$(database_tmp_file_unverified)),$(error Unable to download the database. Try again with `--trace` to debug))
+	$(call sig_verify,$(database_tmp_file_unverified),$(database_tmp_file_sig))\
+	$(call print_log,Database signature is valid.)\
+	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_unverified)) $(call quote,$@))
 	@true
 
 
@@ -354,14 +365,8 @@ $(database_processed_file): $(database_tmp_file)
 	))\
 	$(if $(_local_database_not_changed),\
 		$(call print_log,The database has not changed.)\
-		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file)))\
+		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_sig)))\
 	,\
-		$(call, ### Update keyring if: __no_update_keyring is 0 [default], OR if there's no keyring)\
-		$(if $(and $(filter-out 0,$(__no_update_keyring)),$(call file_exists,$(sig_keyring_path))),,$(sig_update_keyring))\
-		$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_sig)))\
-		$(if $(call use_wget,$(REPO_DB_SIG_URL),$(database_tmp_file_sig)),$(error Unable to download the database signature. Try again with `--trace` to debug))\
-		$(call sig_verify,$(database_tmp_file),$(database_tmp_file_sig))\
-		$(call print_log,Database signature is valid.)\
 		$(call print_log,Extracting package database...)\
 		$(call safe_shell_exec,rm -rf $(call quote,$(database_tmp_dir)))\
 		$(call safe_shell_exec,mkdir -p $(call quote,$(database_tmp_dir)))\
@@ -877,7 +882,13 @@ $(call act, get-canonical-name \
 $(call act, clean-database \
 ,,Delete the package database$(comma) which contains the information about the repository.\
 $(lf)A new database will be downloaded next time it is needed.)
-	@rm -f $(call quote,$(database_processed_file)) $(call quote,$(database_processed_file_bak)) $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original))
+	@rm -f $(call quote,$(database_processed_file)) \
+		$(call quote,$(database_processed_file_bak)) \
+		$(call quote,$(database_tmp_file_unverified)) \
+		$(call quote,$(database_tmp_file)) \
+		$(call quote,$(database_tmp_file_sig)) \
+		$(call quote,$(database_tmp_file_original)) \
+		$(call quote,$(database_tmp_file_original_sig))
 	@rm -rf $(call quote,$(database_tmp_dir))
 
 # Downloads a new database.
@@ -886,6 +897,7 @@ $(call act, reparse-database \
 $(lf)changing `$(database_alternatives_file)`$(comma) otherwise it shouldn't be necessary.)
 	$(call safe_shell_exec,rm -f $(call quote,$(database_processed_file)))
 	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_original)) $(call quote,$(database_tmp_file)) 2>/dev/null || true)
+	$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file_original_sig)) $(call quote,$(database_tmp_file_sig)) 2>/dev/null || true)
 	$(call safe_shell_exec,$(MAKE) 1>&2 __no_update_keyring=1 $(call quote,$(database_processed_file)))
 	$(call pkg_pretty_print_delta_fancy,$(pkg_compute_delta),Run `$(self) apply-delta` to perform following changes:)
 	@true
@@ -950,7 +962,7 @@ $(call act, rollback \
 ,,Undo the last `$(self) upgrade`.)
 	$(if $(call file_exists,$(database_processed_file_bak)),,$(error No database backup to roll back to))
 	$(call safe_shell_exec,mv -f $(call quote,$(database_processed_file_bak)) $(call quote,$(database_processed_file)))
-	$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_original)))
+	$(call safe_shell_exec,rm -f $(call quote,$(database_tmp_file_original)) $(call quote,$(database_tmp_file_original_sig)))
 	$(call pkg_print_then_apply_delta,$(pkg_compute_delta))
 	@true
 

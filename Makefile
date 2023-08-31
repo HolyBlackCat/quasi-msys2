@@ -86,7 +86,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.9
+override version := 1.6.10
 
 
 # --- GENERIC UTILITIES ---
@@ -376,11 +376,17 @@ $(database_processed_file): $(database_tmp_file)
 		$(call var,_local_db_files := $(sort $(call safe_wildcard,$(desc_pattern))))\
 		$(call var,_local_pkg_list :=)\
 		$(call var,_local_pkg_list_with_aliases :=)\
-		$(call, ### All packages mentioned as dependencies are collected here. Sometimes it can have packages from other MSYS2 environments, which we replace with stubs)\
+		$(call, ### All packages mentioned as dependencies are collected here. Sometimes it can have packages from other MSYS2 environments, which we replace with stubs.)\
 		$(call var,_local_dep_list :=)\
+		$(call, ### A list of `name|alias` containing all known aliases and names, mapping them to canonical names, including identity mapping.)\
 		$(call var,_local_dupe_check_list :=)\
+		$(call, ### For each non-canonical name that has alternatives and was handled implicitly, stores `alias|discarded3/discarded2/discarded1`, listing every discarded canonical name for it.)\
+		$(call var,_local_auto_discarded_alts :=)\
+		$(call, ### List of `target:override` from `alternatives.txt`.)\
 		$(call var,_local_conflict_resolutions := $(if $(call file_exists,$(database_alternatives_file)),$(call safe_shell,cat $(call quote,$(database_alternatives_file)))))\
+		$(call, ### All canonical names that are NOT mentioned in `alternatives.txt`.)\
 		$(call var,_local_non_overriden_canonical_pkg_names := $(filter-out $(foreach x,$(_local_conflict_resolutions),$(word 1,$(subst :, ,$x))),$(call strip_ver,$(call desc_file_to_name_ver,$(_local_db_files)))))\
+		$(call, ### A copy of rules from `alternatives.txt`, we remove any used rules from here. Anything that remains here at the end is invalid.)\
 		$(call var,_local_bad_conflict_resolutions := $(_local_conflict_resolutions))\
 		$(call var,_local_had_any_conflicts :=)\
 		$(foreach x,$(_local_db_files),\
@@ -397,11 +403,13 @@ $(database_processed_file): $(database_tmp_file)
 			$(foreach y,$(_local_lhs),\
 				$(call var,_local_conflict := $(strip $(word 1,$(filter %|$y,$(_local_dupe_check_list)))))\
 				$(if $(_local_conflict),\
-					$(call print_log,Warning: '$y' is provided by both)\
-					$(call print_log,  '$(word 1,$(subst |, ,$(_local_conflict)))' (selected by default) and)\
-					$(call print_log,  '$(_local_name)')\
 					$(call var,_local_lhs := $(filter-out $y,$(_local_lhs)))\
 					$(call var,_local_had_any_conflicts := y)\
+					$(if $(filter $y|%,$(_local_auto_discarded_alts)),\
+						$(call var,_local_auto_discarded_alts := $(patsubst $y|%,$y|$(_local_name)/%,$(_local_auto_discarded_alts)))\
+					,\
+						$(call var,_local_auto_discarded_alts += $y|$(_local_name))\
+					)\
 				)\
 			)\
 			$(call var,_local_dupe_check_list += $(addprefix $(_local_name)|,$(_local_lhs)))\
@@ -426,6 +434,12 @@ $(database_processed_file): $(database_tmp_file)
 		$(file >>$@,override FULL_PACKAGE_LIST := $(sort $(_local_pkg_list)))\
 		$(file >>$@,override FULL_ALIAS_LIST := $(sort $(_local_pkg_list_with_aliases)))\
 		$(if $(_local_had_any_conflicts),\
+			$(foreach x,$(_local_auto_discarded_alts),\
+				$(call var,_local_name := $(firstword $(subst |, ,$x)))\
+				$(call var,_local_default_alt := $(patsubst %|$(_local_name),%,$(filter %|$(_local_name),$(_local_dupe_check_list))))\
+				$(call var,_local_other_alts := $(sort $(subst /, ,$(word 2,$(subst |, ,$x)))))\
+				$(call print_log,Note: name '$(_local_name)' is ambiguous$(comma) could mean: '$(_local_default_alt)' (used by default) or $(subst $(space),$(comma) ,$(foreach y,$(_local_other_alts),'$y')))\
+			)\
 			$(call print_log,Note: see `$(self) help` for instructions on changing alternatives.)\
 		)\
 		$(call safe_shell_exec,mv -f $(call quote,$(database_tmp_file)) $(call quote,$(database_tmp_file_original)))\

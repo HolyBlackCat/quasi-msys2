@@ -125,7 +125,7 @@ To restore such backup to a working state, run `make apply-delta` in it.
 
 `env/shell.sh` works best for interactive use.
 
-If you want to run commands non-interactively (an in from shell scripts), do this:
+If you want to run commands non-interactively (as in from shell scripts), do this:
 
 ```sh
 bash -c 'source env/all.src && my_command'

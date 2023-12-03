@@ -13,7 +13,7 @@ __dummy_func() {
 
     # Local variable that stores a fancy warning prefix.
     # We use `tput` instead of hardcoding the codes because it's supposedly more portable.
-    local warn="$(tput setaf 3)[$(tput setaf 1)WARNING$(tput setaf 3)]$(tput sgr0) "
+    local warn="$(tput bold)$(tput setaf 5)[$(tput setaf 1)WARNING$(tput setaf 5)]$(tput sgr0) "
 
     # Load all variables starting with `MSYSTEM` from the primary makefile.
     export -- $(make -C "$(dirname "$BASH_SOURCE")"/.. -pq | grep '^MSYSTEM' | sed 's/\s*:=\s*/=/g')
@@ -79,11 +79,15 @@ __dummy_func() {
             # Warn if MSYS2 GCC (or Clang, for CLANG* environments) is not installed.
             if [[ $MSYSTEM != CLANG* ]]; then
                 if test ! -f "$MSYSTEM_PREFIX/bin/gcc.exe" || test ! -f "$MSYSTEM_PREFIX/bin/g++.exe"; then
+                    echo ''
                     echo "$warn""Couldn't find the MSYS2 GCC. It has to be installed for the native Clang to be able to cross-compile."
+                    echo ''
                 fi
             else
                 if test ! -f "$MSYSTEM_PREFIX/bin/clang.exe" || test ! -f "$MSYSTEM_PREFIX/bin/clang++.exe"; then
+                    echo ''
                     echo "$warn""Couldn't find the MSYS2 Clang. It has to be installed for the native Clang to be able to cross-compile. Restart the shell after after installing it."
+                    echo ''
                 fi
             fi
 
@@ -127,18 +131,24 @@ __dummy_func() {
             unset WIN_NATIVE_CLANG_CC
             unset WIN_NATIVE_CLANG_CXX
             echo "Fail."
+            echo ''
+            echo "$warn"'Unable to find a native Clang (and/or LLD).'
+            echo 'You should install them using your distribution'"'"'s package manager, or, for Ubuntu, using the command from the readme for the latest version.'
+            echo 'Then restart this shell.'
+            echo ''
+            echo 'I will try running MSYS2 compilers using Wine instead, but this is slow and can confuse some build systems.'
+            echo ''
 
             # Now try the MSYS2 Clang.
-            echo "Trying MSYS2 Clang... (not recommended)"
+            echo "Trying MSYS2 Clang..."
             if test -f "$MSYSTEM_PREFIX/bin/clang.exe" && test -f "$MSYSTEM_PREFIX/bin/clang++.exe"; then
                 # Successfully found the MSYS2 Clang.
                 echo "Success."
-                echo "But consider using the native Clang instead, it should be faster."
                 export "CC=clang"
                 export "CXX=clang++"
             else
                 # Couldn't find the MSYS2 Clang.
-                echo "Fail."
+                echo "Fail, probably not installed."
 
                 # Now try the MSYS2 GCC.
                 echo "Trying MSYS2 GCC..."
@@ -147,7 +157,7 @@ __dummy_func() {
                     export "CC=gcc"
                     export "CXX=g++"
                 else
-                    echo "Fail."
+                    echo "Fail, probably not installed."
                     echo "$warn""Couldn't find any suitable compiler."
                 fi
             fi

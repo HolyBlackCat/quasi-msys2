@@ -114,7 +114,7 @@ __dummy_func() {
                 export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=lld$clang_ver_suffix -pthread"
                 if [[ $MSYSTEM != CLANG* ]]; then
                     # `-stdlib=libstdc++ -rtlib=libgcc` are used by default on my Ubuntu Clang, adding them just in case.
-                    export "WIN_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc"
+                    export "WIN_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc -unwindlib=libgcc"
                 else
                     # `-fno-emulated-tls` is used by default on my Ubuntu Clang, adding it just in case.
                     export "WIN_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"

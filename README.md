@@ -18,13 +18,11 @@ Here's how it works:
 
 ## Usage
 
-* Install dependencies: (this is for Ubuntu 22.04; adjust for your Linux distribution)
-  ```bash
-  sudo apt install make wget tar zstd gpg wine # Wine is optional but recommended.
-  # Install Clang and LLD (recommended)
-  bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-  ```
-  NOTE: `make --version` must be 4.3 or newer.
+* Install dependencies:
+
+  On Ubuntu: `sudo apt install make wget tar zstd gpg wine`. Wine is optional but recommended. `make --version` must be 4.3 or newer.
+
+  Must also install `clang` and `lld`. Ubuntu users should use `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"` to get the latest version. On other distributions just install from the package manager as usual.
 
 * Install quasi-msys2:
   ```bash

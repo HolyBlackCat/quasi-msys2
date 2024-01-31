@@ -24,6 +24,8 @@ Here's how it works:
 
   Must also install `clang` and `lld`. Ubuntu users should use `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"` to get the latest version. On other distributions just install from the package manager as usual.
 
+  <sup>(While it's technically possible to operate without Clang, by running MSYS2 compilers in Wine, the build systems often choke on this.)</sup>
+
 * Install quasi-msys2:
   ```bash
   git clone https://github.com/holyblackcat/quasi-msys2
@@ -40,9 +42,10 @@ Here's how it works:
 * Build:
   * Manually:
     ```bash
-    $CXX 1.cpp # Uses Clang if you have it, otherwise runs MSYS2 compiler using Wine.
+    win-clang++ 1.cpp # Calls your Clang with
     ./a.exe # Works if you installed Wine.
     ```
+    You can also use `g++` and `clang++` to run the respective MSYS2 compilers in Wine, assuming you installed `_gcc` and `_clang` respectively.
   * With Autotools: just `./configure && make`, no extra configuration is needed.
   * With CMake: just run `cmake` as usual, no extra configuration is needed.
 

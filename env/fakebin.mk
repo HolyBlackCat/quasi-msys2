@@ -4,10 +4,10 @@
 
 # A space-separated list of programs that must not have fakebin wrappers.
 # Most are blacklisted because native equivalents work equally well.
-# `pkg-config` is blacklisted because it outputs WINE-style paths.
+# `pkg-config` and `pkgconf` are blacklisted because they output WINE-style paths. And also because they now seem to choke on Linux-style env variables?
 # `cmake` doesn't seem to work correctly, but it doesn't matter,
 #     because we configure the native one with shell variables.
-QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config strip
+QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip
 
 
 # Some constants.

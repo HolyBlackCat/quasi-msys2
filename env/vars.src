@@ -226,6 +226,12 @@ __dummy_func() {
     export "PKG_CONFIG_LIBDIR=-"
     [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_LIBDIR = $PKG_CONFIG_LIBDIR"
 
+    # Those are `pkgconf` extensions on top of `pkg-config`. Flags pointing to those dirs are stripped from the output.
+    export "PKG_CONFIG_SYSTEM_INCLUDE_PATH=$MSYSTEM_PREFIX/include"
+    export "PKG_CONFIG_SYSTEM_LIBRARY_PATH=$MSYSTEM_PREFIX/lib"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_SYSTEM_INCLUDE_PATH = $PKG_CONFIG_SYSTEM_INCLUDE_PATH"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "PKG_CONFIG_SYSTEM_LIBRARY_PATH = $PKG_CONFIG_SYSTEM_LIBRARY_PATH"
+
     # Not sure what exactly `aclocal` is, but MSYS2 sets this variable, and so do we.
     # MSYS2 also stores a second path in it, `/usr/share/aclocal` (separated by a `:`), but we probably shouldn't add it forcefully if it's not already there.
     # Since one of the paths MSYS2 stores in it doesn't start with `/ucrt64`, it seemed logical to me to append to this variable rather than overwriting it.

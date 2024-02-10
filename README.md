@@ -52,7 +52,7 @@ Here's how it works:
   Both CMake and Autotools will think they perform a native Windows build, thanks to [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc), which transparently calls Wine to run Windows executables.
 
 * Other tools that work in `env/shell.sh`:
-  * `pkg-config`
+  * `pkgconf` (and `pkg-config`)
   * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
   * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
 

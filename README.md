@@ -42,7 +42,7 @@ Here's how it works:
 * Build:
   * Manually:
     ```bash
-    win-clang++ 1.cpp # Calls your Clang with
+    win-clang++ 1.cpp # Calls your Clang with the right flags for cross-compilation.
     ./a.exe # Works if you installed Wine.
     ```
     You can also use `g++` and `clang++` to run the respective MSYS2 compilers in Wine, assuming you installed `_gcc` and `_clang` respectively.

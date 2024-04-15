@@ -86,7 +86,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.10
+override version := 1.6.11
 
 
 # --- GENERIC UTILITIES ---
@@ -679,12 +679,12 @@ override index_force_install = \
 	$(foreach p,$1,\
 		$(call index_stop_if_single_pkg_installed,$p)\
 		$(call cache_want_packages,$p)\
+		$(call print_log,Extracting '$p'...)\
 		$(call var,_local_files := $(call cache_list_pkg_files,$p))\
 		$(foreach x,$(_local_files),$(if $(call file_exists,$(ROOT_DIR)/$(subst <, ,$x)),$(error Unable to install '$p': file `$(subst <, ,$x)` already exists)))\
 		$(call, ### This creates the file if it doesn't exist, even if `_local_files` is empty. This is necessary for empty packages, such as `_autotools`.)\
 		$(file >$(index_dir)/$(index_broken_prefix)$p)\
 		$(foreach x,$(_local_files),$(file >>$(index_dir)/$(index_broken_prefix)$p,$x))\
-		$(call print_log,Extracting '$p'...)\
 		$(call safe_shell_exec,tar -C $(call quote,$(ROOT_DIR)) -xf $(call quote,$(call cache_find_pkg_archive,$p)) --exclude='.*')\
 		$(call safe_shell_exec,mv -f '$(index_dir)/$(index_broken_prefix)$p' '$(index_dir)/$p')\
 		$(call print_log,Installed '$p')\

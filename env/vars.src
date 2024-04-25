@@ -252,6 +252,19 @@ __dummy_func() {
 
     [[ $QUASI_MSYS2_QUIET ]] || echo ''
 
+
+    # Rust variables:
+
+    # Convert the target name to what rustc understands. You can get the same conversion from `clang --target=... --version`.
+    export CARGO_BUILD_TARGET="${MSYSTEM_CHOST/%w64-mingw32/pc-windows-gnu}"
+    local uppercase_target="${CARGO_BUILD_TARGET^^}"
+    local rustc_linker_var="CARGO_TARGET_${uppercase_target//-/_}_LINKER"
+    export "$rustc_linker_var"="$CC"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "CARGO_BUILD_TARGET = $CARGO_BUILD_TARGET"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "$rustc_linker_var = ${!rustc_linker_var}"
+    [[ $QUASI_MSYS2_QUIET ]] || echo ''
+
+
     # Update the PATH.
     export "WIN_ORIGINAL_PATH=$PATH"
     local new_path="$(make -f "$QUASI_MSYS2_ROOT/env/internal/AddToPath.mk" "dirs=$QUASI_MSYS2_ROOT/env/wrappers:$QUASI_MSYS2_ROOT/env/fake_bin:$WINEPATH")"

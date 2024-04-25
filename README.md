@@ -56,6 +56,17 @@ Here's how it works:
   * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
   * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
 
+### Rust
+
+We also support Rust for completeness.
+
+You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` on the host and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform.
+
+Then you can use:
+
+* `win-rustc` to compile a single file (this wrapper calls `/usr/bin/rustc` with flags for cross-compilation).
+* `cargo` (we set environment variables to make it cross-compile by default).
+
 ## Package manager usage
 
 Run `make help` to get the full list of commands it supports.

@@ -58,7 +58,7 @@ Here's how it works:
 
 ### Rust
 
-We also support Rust for completeness.
+I try to support Rust for completeness, but the support is experimental.
 
 You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` on the host and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform.
 

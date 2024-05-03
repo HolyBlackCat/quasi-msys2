@@ -20,11 +20,19 @@ Here's how it works:
 
 * Install dependencies:
 
-  On Ubuntu: `sudo apt install make wget tar zstd gpg wine`. Wine is optional but recommended. `make --version` must be 4.3 or newer.
+  * **Ubuntu:** `sudo apt install make wget tar zstd gpg wine`
 
-  Must also install `clang` and `lld`. Ubuntu users should use `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"` to get the latest version. On other distributions just install from the package manager as usual.
+    * Install latest Clang and LLD using `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`. Or you can try the stock ones from Ubuntu repos, but they are often outdated.
 
-  <sup>(While it's technically possible to operate without Clang, by running MSYS2 compilers in Wine, the build systems often choke on this.)</sup>
+  * **Arch:** `sudo pacman -S --needed make wget tar zstd gnupg wine clang lld`
+
+    * To install Wine, you need to [enable the `multilib` repository](https://wiki.archlinux.org/title/official_repositories#Enabling_multilib) first.
+
+    * Clang and LLD in the repos are usually outdated by one major version. If you don't like that, build from source or use AUR.
+
+  * (similarly for other distros)
+
+  Wine is optional but recommended. `make --version` must be 4.3 or newer. While it's technically possible to operate without Clang, by running MSYS2 compilers in Wine, the build systems often choke on this.
 
 * Install quasi-msys2:
   ```bash

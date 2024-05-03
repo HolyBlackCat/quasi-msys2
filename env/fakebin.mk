@@ -7,8 +7,9 @@
 # `pkg-config` and `pkgconf` are blacklisted because they output WINE-style paths. And also because they now seem to choke on Linux-style env variables?
 # `cmake` doesn't seem to work correctly, but it doesn't matter,
 #     because we configure the native one with shell variables.
-# `python` (and `pydoc` for completeness) are blacklisted because they are slow. The native ones should be good enough?
-QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip python% pydoc%
+# For some libs it helps blacklisting `python% pydoc%` (because the native ones are faster) (the latter just for consistency),
+#   but for others (most?) it interferes with CMake finding python, so not doing it by default.
+QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip
 
 
 # Some constants.

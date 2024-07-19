@@ -30,6 +30,8 @@ Here's how it works:
 
     * Clang and LLD in the repos are usually outdated by one major version. If you don't like that, build from source or use AUR.
 
+  * **Fedora:** `sudo dnf install make wget tar zstd gpg wine clang lld`
+
   * (similarly for other distros)
 
   Wine is optional but recommended. `make --version` must be 4.3 or newer. While it's technically possible to operate without Clang, by running MSYS2 compilers in Wine, the build systems often choke on this.

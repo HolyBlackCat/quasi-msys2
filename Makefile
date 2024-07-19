@@ -264,7 +264,7 @@ override sig_update_keyring = \
 # $1 is the file.
 # $2 is the signature.
 override sig_verify = \
-	$(if $(filter-out 0,$(call shell_status,LANG= gpg --batch --yes --no-default-keyring --keyring ./$(call quote,$(sig_keyring_path)) --trust-model always --verify $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
+	$(if $(filter-out 0,$(call shell_status,LANG= gpgv --keyring ./$(call quote,$(sig_keyring_path)) $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
 		$(error Signature check failed!$(lf)File: $1$(lf)Signature: $2$(lf)Try again with `--trace` to see GPG output)\
 	)
 

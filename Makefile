@@ -150,12 +150,15 @@ override file_exists = $(filter 0,$(call shell_status,test -e $(call quote,$1)))
 # Make tends to cache the results of `wildcard`, and doesn't invalidate them when it should.
 override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,$(call shell_status,test -e $(call quote,$x))),$x))
 
-# Either `--show-progress` or `--progress=bar` (for wget 1 and wget 2 respectively).
-override wget_progress_flag = $(if $(__wget_progress_flag),,$(call var,__wget_progress_flag := $(if $(filter 0,$(call shell_status,wget --help | grep -- --show-progress)),--show-progress,--progress=bar)))$(__wget_progress_flag)
+# `--show-progress -q` for wget1 or `--progress=bar` for wget2.
+# Wget1 without `-q` prints a lot of junk. Wget2 doesn't print junk, and `-q` makes it hide the progressbar, so we don't use it there.
+# Wget2 seems to show the progressbar by default, but I'm still passing `--progress=bar` just in case.
+override wget_progress_flag = $(if $(__wget_progress_flag),,$(call var,__wget_progress_flag := $(if $(filter 0,$(call shell_status,wget --version | head -1 | grep Wget2)),--progress=bar,--show-progress -q)))$(__wget_progress_flag)
 
 # Downloads url $1 to file $2.
 # On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.
-override use_wget = $(filter-out 0,$(call shell_status,wget $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,-q) $(if $(call boolean,WGET_ALLOW_DEFAULT_FLAGS),-c $(wget_progress_flag)) $(WGET_FLAGS) -O $(call quote,$2) || (rm -f $(call quote,$2) && false)))
+# Need `1>&2` to see the progressbar in wget2. Seems to have no effect on wget1.
+override use_wget = $(filter-out 0,$(call shell_status,wget $(call quote,$1) $(if $(call boolean,WGET_ALLOW_DEFAULT_FLAGS),-c $(wget_progress_flag)) $(WGET_FLAGS) -O $(call quote,$2) 1>&2 || (rm -f $(call quote,$2) && false)))
 
 # Prints $1 to stderr.
 override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))

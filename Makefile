@@ -477,8 +477,8 @@ endif
 # Internal database interface:
 
 # Invokes make with $1 parameters, and returns the result.
-override invoke_database_process = $(call safe_shell,$(MAKE) $(MAKEOVERRIDES) -r $1)
-
+# `MAKEFLAGS=` is required here, otherwise `--trace` breaks this function, because it changes its output.
+override invoke_database_process = $(call safe_shell,MAKEFLAGS= $(MAKE) $(MAKEOVERRIDES) -r $1)
 
 # Serves as the query parameter.
 __packages = $(error The parameter `__packages` is not set)

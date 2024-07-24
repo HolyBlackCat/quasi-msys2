@@ -5,7 +5,6 @@ A Linux-to-Windows cross-compilation environment. Imitates [MSYS2](https://www.m
 Features:
 
 * [Huge amount of prebuilt libraries](https://packages.msys2.org/package/), and [several MinGW flavors](https://www.msys2.org/docs/environments/) (all of this comes from the MSYS2 project).
-* Provides environment very similar to MSYS2 you'd have on Windows. If your code builds on MSYS2, it should build on Quasi-MSYS2 as is, and vice versa.
 * Linux-distribution-agnostic.
 * The installation is self-contained.
 

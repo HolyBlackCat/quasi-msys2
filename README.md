@@ -55,8 +55,9 @@ Here's how it works:
     ./a.exe # Works if you installed Wine.
     ```
     You can also use `g++` and `clang++` to run the respective MSYS2 compilers in Wine, assuming you installed `_gcc` and `_clang` respectively.
-  * With Autotools: just `./configure && make`, no extra configuration is needed.
-  * With CMake: just run `cmake` as usual, no extra configuration is needed.
+  * With Autotools: just `./configure && make` as usual, no extra configuration is needed.
+  * With CMake: just run `cmake` as usual.
+  * With Meson: just run `meson` as usual. (Experimental.)
 
   Both CMake and Autotools will think they perform a native Windows build, thanks to [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc), which transparently calls Wine to run Windows executables.
 

@@ -9,7 +9,7 @@
 #     because we configure the native one with shell variables.
 # For some libs it helps blacklisting `python% pydoc%` (because the native ones are faster) (the latter just for consistency),
 #   but for others (most?) it interferes with CMake finding python, so not doing it by default.
-QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip
+QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip meson
 
 
 # Some constants.

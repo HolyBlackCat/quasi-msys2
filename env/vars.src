@@ -250,6 +250,12 @@ __dummy_func() {
     export "WIN_CMAKE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=$QUASI_MSYS2_ROOT/env/config/toolchain.cmake -DCMAKE_INSTALL_PREFIX=$MSYSTEM_PREFIX"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_CMAKE_FLAGS = $WIN_CMAKE_FLAGS"
 
+    # And similarly for meson.
+    export "WIN_NATIVE_MESON=$(which meson)"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_MESON = $WIN_NATIVE_MESON"
+    export "WIN_MESON_FLAGS=--cross-file=$QUASI_MSYS2_ROOT/env/config/meson_cross_file.ini"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_MESON_FLAGS = $WIN_MESON_FLAGS"
+
     [[ $QUASI_MSYS2_QUIET ]] || echo ''
 
 

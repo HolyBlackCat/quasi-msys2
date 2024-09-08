@@ -23,6 +23,9 @@ __dummy_func() {
     local QUASI_MSYS2_QUIET=1
     echo -e '\n--- vars.src'
     source "$env_path/vars.src" || return 1
+
+    # Update the cross-file for Meson.
+    make -f "$env_path/generate_meson_config.mk" >/dev/null
 }
 # Call our dummy funcion.
 __dummy_func

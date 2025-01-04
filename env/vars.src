@@ -120,8 +120,10 @@ __dummy_func() {
                     export "WIN_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"
                     # The `find` command is used to descend into the only subdirectory, named after the Clang version.
                     local clang_res_dir="$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit)"
-                    if [[ $clang_res_dir ]]; then
+                    if [[ $clang_res_dir && $(basename "$clang_res_dir") == $(basename "$("$WIN_NATIVE_CLANG_CC" -print-resource-dir)") ]]; then
                         export "WIN_CLANG_FLAGS+= -resource-dir=$clang_res_dir"
+                    else
+                        echo "$warn""Couldn't find a suitable Clang resource directory in the MSYS2 installation. Either MSYS2 Clang is not installed or it has a different version compared to the native Clang. Must restart this shell after fixing this."
                     fi
                 fi
             fi

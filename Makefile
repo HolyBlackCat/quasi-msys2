@@ -151,9 +151,11 @@ override file_exists = $(filter 0,$(call shell_status,test -e $(call quote,$1)))
 override safe_wildcard = $(foreach x,$(call safe_shell,echo $1),$(if $(filter 0,$(call shell_status,test -e $(call quote,$x))),$x))
 
 # `--show-progress -q` for wget1 or `--progress=bar` for wget2.
+# Or, if stderr is not attached to a terminal, just `-q` for wget1 or nothing for wget2 (to disable the progress output, because otherwise wget
+#   uses a really verbose progress style that makes the logs hard to read).
 # Wget1 without `-q` prints a lot of junk. Wget2 doesn't print junk, and `-q` makes it hide the progressbar, so we don't use it there.
 # Wget2 seems to show the progressbar by default, but I'm still passing `--progress=bar` just in case.
-override wget_progress_flag = $(if $(__wget_progress_flag),,$(call var,__wget_progress_flag := $(if $(filter 0,$(call shell_status,wget --version | head -1 | grep Wget2)),--progress=bar,--show-progress -q)))$(__wget_progress_flag)
+override wget_progress_flag = $(if $(__wget_progress_flag),,$(call var,__wget_progress_flag := $(if $(filter 0,$(call shell_status,wget --version | head -1 | grep Wget2)),$(if $(MAKE_TERMERR),--progress=bar),$(if $(MAKE_TERMERR),--show-progress) -q)))$(__wget_progress_flag)
 
 # Downloads url $1 to file $2.
 # On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.

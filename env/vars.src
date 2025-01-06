@@ -175,7 +175,7 @@ __dummy_func() {
 
     # Create a variable for `win-ldd`. Not sure if anyone uses this, it's mostly for my convenience.
     if test "$MINGW_LDD"; then
-        export "LDD=$MINGW_RC"
+        export "LDD=$MINGW_LDD"
     else
         export "LDD=win-ldd"
     fi

@@ -45,9 +45,14 @@ __dummy_func() {
 
     # Select C/C++ compilers.
     if test "$MINGW_CC" || test "$MINGW_CXX"; then
+        # Back up the native compiler.
+        export "WIN_NATIVE_CC=${CC-/usr/bin/cc}"
+        export "WIN_NATIVE_CXX=${CXX-/usr/bin/c++}"
+        export "WIN_NATIVE_LD=${LD-/usr/bin/ld}"
         # A custom compiler is specified, use it.
         export "CC=$MINGW_CC"
         export "CXX=$MINGW_CXX"
+        unset LD # I don't think anything needs it? If we decide to add it, do we need some kind of `--target` for the linker?
     else
         # No custom compiler is specified, try to guess.
         echo -e '\nGuessing a compiler... To override, set `MINGW_CC` and `MINGW_CXX` and restart.'
@@ -73,8 +78,6 @@ __dummy_func() {
         if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "lld$clang_ver_suffix" >/dev/null 2>/dev/null; then
             # Successfully found a native Clang.
             echo "Success! Will use wrappers for the native Clang."
-            export "CC=win-clang"
-            export "CXX=win-clang++"
 
             # Warn if MSYS2 GCC (or Clang, for CLANG* environments) is not installed.
             if [[ $MSYSTEM != CLANG* ]]; then
@@ -100,6 +103,15 @@ __dummy_func() {
 
             echo "WIN_NATIVE_CLANG_CC = $WIN_NATIVE_CLANG_CC"
             echo "WIN_NATIVE_CLANG_CXX = $WIN_NATIVE_CLANG_CXX"
+
+            # Now that `WIN_NATIVE_CLANG_{CC,CXX}` are stabilized, copy them to `WIN_NATIVE_{CC,CXX}`.
+            export "WIN_NATIVE_CC=${CC-${WIN_NATIVE_CLANG_CC}}"
+            export "WIN_NATIVE_CXX=${CXX-${WIN_NATIVE_CLANG_CXX}}"
+            export "WIN_NATIVE_LD=${LD-lld$clang_ver_suffix}"
+            # Update `CC` and `CXX` after backing them up.
+            export "CC=win-clang"
+            export "CXX=win-clang++"
+            unset LD # See above.
 
             # This custom variable specifies the flags for our Clang wrapper in `env/wrappers`.
             # `--target` sets the target platform.
@@ -141,6 +153,11 @@ __dummy_func() {
             echo 'I will try running MSYS2 compilers using Wine instead, but this is slow and can confuse some build systems.'
             echo ''
 
+            # Back up `CC` and `CXX` before we modify them.
+            export "WIN_NATIVE_CC=${CC-/usr/bin/cc}"
+            export "WIN_NATIVE_CXX=${CXX-/usr/bin/c++}"
+            export "WIN_NATIVE_LD=${LD-/usr/bin/ld}"
+
             # Now try the MSYS2 Clang.
             echo "Trying MSYS2 Clang..."
             if test -f "$MSYSTEM_PREFIX/bin/clang.exe" && test -f "$MSYSTEM_PREFIX/bin/clang++.exe"; then
@@ -148,6 +165,7 @@ __dummy_func() {
                 echo "Success."
                 export "CC=clang"
                 export "CXX=clang++"
+                unset LD # See above.
             else
                 # Couldn't find the MSYS2 Clang.
                 echo "Fail, probably not installed."
@@ -158,6 +176,7 @@ __dummy_func() {
                     echo "Success."
                     export "CC=gcc"
                     export "CXX=g++"
+                    unset LD # See above.
                 else
                     echo "Fail, probably not installed."
                     echo "$warn""Couldn't find any suitable compiler."
@@ -183,6 +202,8 @@ __dummy_func() {
     # Print the compilers we ended up with.
     echo "CC  = $CC"
     echo "CXX = $CXX"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_CC  = $WIN_NATIVE_CC"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_CXX = $WIN_NATIVE_CXX"
     echo ''
 
 
@@ -253,9 +274,10 @@ __dummy_func() {
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_CMAKE_FLAGS = $WIN_CMAKE_FLAGS"
 
     # And similarly for meson.
+    # Note the "native file". It's not usually needed, but sometimes can be needed. See the comments in `env/generate_meson_config.mk`.
     export "WIN_NATIVE_MESON=$(which meson)"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_MESON = $WIN_NATIVE_MESON"
-    export "WIN_MESON_FLAGS=--cross-file=$QUASI_MSYS2_ROOT/env/config/meson_cross_file.ini"
+    export "WIN_MESON_FLAGS=--cross-file=$QUASI_MSYS2_ROOT/env/config/meson_cross_file.ini --native-file=$QUASI_MSYS2_ROOT/env/config/meson_native_file.ini"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_MESON_FLAGS = $WIN_MESON_FLAGS"
 
     [[ $QUASI_MSYS2_QUIET ]] || echo ''

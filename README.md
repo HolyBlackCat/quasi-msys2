@@ -13,13 +13,13 @@ Here's how it works:
 * MinGW-based packages (compilers, libraries, etc) are downloaded from the MSYS2 repos.
 * Cygwin-based packages are not available (since Cygwin doesn't work well under Wine, if at all), but their native equivalents should be enough.
 * `pacman` is replaced with a small custom package manager (since `pacman` itself is Cygwin-based).
-* Optionally, [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine, and we convince CMake and Autotools that we're doing a native Windows build.
+* Optionally, [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine. This can help if your build system tries to run cross-compiled executables during build, and doesn't provide a customization mechanism to explicitly run Wine.
 
 ## Usage
 
 * Install dependencies:
 
-  * **Ubuntu:** `sudo apt install make wget tar zstd gawk gpg wine`
+  * **Ubuntu / Debian:** `sudo apt install make wget tar zstd gawk gpg wine`
 
     * Install latest Clang and LLD using `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`. Or you can try the stock ones from Ubuntu repos, but they are often outdated.
 
@@ -41,6 +41,8 @@ Here's how it works:
   cd quasi-msys2
   make install _gcc _gdb # same as `make install mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb`
   ```
+  You can also [`make install` third-party libraries](#package-manager-usage), if MSYS2 provides them.
+
   For selecting MSYS2 compiler flavor, [see FAQ](#how-do-i-use-different-msys2-environments).
 * Open quasi-msys2 shell:
   ```bash
@@ -55,22 +57,26 @@ Here's how it works:
     ./a.exe # Works if you installed Wine.
     ```
     You can also use `g++` and `clang++` to run the respective MSYS2 compilers in Wine, assuming you installed `_gcc` and `_clang` respectively.
-  * With Autotools: just `./configure && make` as usual, no extra configuration is needed.
-  * With CMake: just run `cmake` as usual.
-  * With Meson: just run `meson` as usual. (Experimental.)
-
-  Both CMake and Autotools will think they perform a native Windows build, thanks to [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc), which transparently calls Wine to run Windows executables.
+  * With Autotools: `./configure && make` as usual, no extra configuration is needed.
+  * With CMake: `cmake` as usual.
+  * With Meson: `meson` as usual.
 
 * Other tools that work in `env/shell.sh`:
   * `pkgconf` (and `pkg-config`)
   * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
   * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
 
+* Accessing non-cross compilers and other native tools:
+
+  * Use absolute paths (e.g. `/usr/bin/gcc`) to access non-cross compilers and native utilities (CMake, Meson, etc).
+
+  * The only exception is `win-native-pkg-config` to access the native `pkg-config`, because we control pkg-config using environment variables rather than by providing a custom executable. (The `win-native-pkg-config` helper script simply unsets all pkg-config-related environment variables before running it.)
+
 ### Rust
 
 I try to support Rust for completeness, but the support is experimental.
 
-You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` on the host and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform.
+You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` natively (outside of quasi-msys2) and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform.
 
 Then you can use:
 

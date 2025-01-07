@@ -12,3 +12,4 @@
 /requested_packages.txt
 /root/**
 /env/config/meson_cross_file.ini
+/env/config/meson_native_file.ini

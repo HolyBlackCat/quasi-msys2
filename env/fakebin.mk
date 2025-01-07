@@ -5,11 +5,19 @@
 # A space-separated list of programs that must not have fakebin wrappers.
 # Most are blacklisted because native equivalents work equally well.
 # `pkg-config` and `pkgconf` are blacklisted because they output WINE-style paths. And also because they now seem to choke on Linux-style env variables?
-# `cmake` doesn't seem to work correctly, but it doesn't matter,
-#     because we configure the native one with shell variables.
+# `cmake` doesn't seem to work correctly, but it doesn't matter, because we configure the native one with shell variables.
 # For some libs it helps blacklisting `python% pydoc%` (because the native ones are faster) (the latter just for consistency),
 #   but for others (most?) it interferes with CMake finding python, so not doing it by default.
-QUASI_MSYS2_FAKEBIN_BLACKLIST ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip meson ninja
+QUASI_MSYS2_FAKEBIN_BLACKLIST_DEFAULT ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip meson ninja
+# This is appended to the variable above.
+QUASI_MSYS2_FAKEBIN_BLACKLIST ?=
+# Then this is subtracted from the result.
+QUASI_MSYS2_FAKEBIN_WHITELIST ?=
+
+$(if $(QUASI_MSYS2_FAKEBIN_BLACKLIST),$(info Custom blacklist: $(QUASI_MSYS2_FAKEBIN_BLACKLIST)))
+$(if $(QUASI_MSYS2_FAKEBIN_WHITELIST),$(info Custom whitelist: $(QUASI_MSYS2_FAKEBIN_WHITELIST)))
+
+override final_blacklist := $(filter-out $(QUASI_MSYS2_FAKEBIN_WHITELIST),$(QUASI_MSYS2_FAKEBIN_BLACKLIST_DEFAULT) $(QUASI_MSYS2_FAKEBIN_BLACKLIST))
 
 
 # Some constants.
@@ -61,10 +69,10 @@ $(if $(MSYSTEM_PREFIX),,$(error Can't obtain the value of `MSYSTEM_PREFIX`.))
 PATTERN := root$(MSYSTEM_PREFIX)/bin/*.exe
 override PATTERN := $(installation_root)/$(PATTERN)
 
-override wanted_list = $(filter-out $(QUASI_MSYS2_FAKEBIN_BLACKLIST),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
-override current_list = $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*))
-override added_list = $(filter-out $(current_list),$(wanted_list))
-override removed_list = $(filter-out $(wanted_list),$(current_list))
+override wanted_list := $(filter-out $(final_blacklist),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
+override current_list := $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*))
+override added_list := $(filter-out $(current_list),$(wanted_list))
+override removed_list := $(filter-out $(wanted_list),$(current_list))
 
 .PHONY: update
 update:

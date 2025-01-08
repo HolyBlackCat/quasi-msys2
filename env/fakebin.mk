@@ -69,7 +69,12 @@ $(if $(MSYSTEM_PREFIX),,$(error Can't obtain the value of `MSYSTEM_PREFIX`.))
 PATTERN := root$(MSYSTEM_PREFIX)/bin/*.exe
 override PATTERN := $(installation_root)/$(PATTERN)
 
+ifeq ($(shell which wine >/dev/null 2>/dev/null)$(.SHELLSTATUS),0)
 override wanted_list := $(filter-out $(final_blacklist),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
+else
+$(info Not generating any wrappers because Wine is not installed.)
+override wanted_list :=
+endif
 override current_list := $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*))
 override added_list := $(filter-out $(current_list),$(wanted_list))
 override removed_list := $(filter-out $(wanted_list),$(current_list))

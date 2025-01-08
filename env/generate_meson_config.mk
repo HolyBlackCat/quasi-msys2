@@ -14,9 +14,9 @@ endef
 
 override is32bit := $(if $(filter %32,$(MSYSTEM)),y)
 
+# Here we only set `exe_wrapper` if Wine is installed.
 override define contents :=
-[binaries]
-exe_wrapper = 'wine'
+[binaries]$(if $(shell which wine >/dev/null 2>/dev/null)$(filter 0,$(.SHELLSTATUS)),$(lf)exe_wrapper = 'wine')
 # Meson refuses to use those unless we explicitly tell it to. Something else might be missing.
 pkg-config = 'pkg-config'
 strip = 'strip'

@@ -53,6 +53,7 @@ __dummy_func() {
         export "CC=$MINGW_CC"
         export "CXX=$MINGW_CXX"
         unset LD # I don't think anything needs it? If we decide to add it, do we need some kind of `--target` for the linker?
+        export "WIN_NATIVE_WINDRES=$MINGW_WINDRES"
     else
         # No custom compiler is specified, try to guess.
         echo -e '\nGuessing a compiler... To override, set `MINGW_CC` and `MINGW_CXX` and restart.'
@@ -140,6 +141,13 @@ __dummy_func() {
                 fi
             fi
             echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
+
+            if which "llvm-windres$clang_ver_suffix" >/dev/null 2>/dev/null; then
+                export "WIN_NATIVE_WINDRES=llvm-windres$clang_ver_suffix"
+                echo "WIN_NATIVE_WINDRES = $WIN_NATIVE_WINDRES"
+            else
+                echo "$warn""Couldn't find \`llvm-windres$clang_ver_suffix\`. Will try to run MSYS2 Windres using Wine, which might be slow."
+            fi
         else
             # Couldn't find a native Clang.
             unset WIN_NATIVE_CLANG_CC

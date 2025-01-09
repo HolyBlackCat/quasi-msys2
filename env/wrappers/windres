@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [[ -v WIN_NATIVE_WINDRES ]]; then
+"$WIN_NATIVE_WINDRES" "$@"
+else
+wine windres.exe "$@"
+fi

@@ -21,19 +21,19 @@ Here's how it works:
 
   * **Ubuntu / Debian:** `sudo apt install make wget tar zstd gawk gpg wine`
 
-    * Install latest Clang and LLD using `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`. Or you can try the stock ones from Ubuntu repos, but they are often outdated.
+    * Install latest LLVM, Clang and LLD using `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`. Or you can try the stock ones from Ubuntu repos, but they are often outdated.
 
-  * **Arch:** `sudo pacman -S --needed make wget tar zstd gawk gnupg wine clang lld`
+  * **Arch:** `sudo pacman -S --needed make wget tar zstd gawk gnupg wine llvm clang lld`
 
     * To install Wine, you need to [enable the `multilib` repository](https://wiki.archlinux.org/title/official_repositories#Enabling_multilib) first.
 
     * Clang and LLD in the repos are usually outdated by one major version. If you don't like that, build from source or use AUR.
 
-  * **Fedora:** `sudo dnf install make wget tar zstd gawk gpg wine clang lld`
+  * **Fedora:** `sudo dnf install make wget tar zstd gawk gpg wine llvm clang lld`
 
   * (similarly for other distros)
 
-  Wine is optional but recommended. `make --version` must be 4.3 or newer. While it's technically possible to operate without Clang, by running MSYS2 compilers in Wine, the build systems often choke on this.
+  Wine is optional but recommended. `make --version` must be 4.3 or newer. While it's technically possible to operate without Clang+LLD, by running MSYS2 compilers in Wine, the build systems often choke on this. The LLVM package (as opposed to Clang and LLD) is currently only needed for `llvm-windres`, you can skip it if you don't need Windres.
 
 * Install quasi-msys2:
   ```bash

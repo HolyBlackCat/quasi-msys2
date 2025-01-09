@@ -65,6 +65,7 @@ Here's how it works:
   * `pkgconf` (and `pkg-config`)
   * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
   * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
+  * `windres` (calls `llvm-windres` with appropriate flags if installed, or falls back to running MSYS2 Windres in Wine)
 
 * Accessing non-cross compilers and other native tools:
 

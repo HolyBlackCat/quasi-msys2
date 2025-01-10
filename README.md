@@ -170,7 +170,28 @@ All environments should work, more or less. (Except for `MSYS`, which I'm not pa
 
 On `CLANG64`, when using the native Clang, you must install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On this environment, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
 
+### How do I customize the environment?
+
+Study [`env/vars.src`](/env/vars.src) for the environment variables you can customize.
+
+Some useful variables are:
+
+* Customizing the native Clang that is used for cross-compilation:
+
+  * You can set `WIN_NATIVE_CLANG_FLAGS` to customize what flags are passed to your native Clang. We print the guessed flags when initializing `env/shell.sh`.
+
+  * You can set `WIN_NATIVE_CLANG_VER` to a single number (e.g. `19`) if your native Clang is suffixed with a version (e.g. `clang++-19`), or `NONE` if not suffixed (just `clang++`). We try to guess this number. You can also specify custom native Clang binaries with `WIN_NATIVE_CLANG_{CC,CXX,LD}`, then you must specify all three (`..._LD` should typically point to `lld`).
+
+* Customizing the native compiler that's used for non-cross compilation. This is something we only report to the build systems (currently only Meson), and don't use directly.
+
+  * The specified `CC`, `CXX`, `LD` will be used for this. Their values are then replaced with the cross-compiler by `env/shell.sh`.
+
+  * To override `CC`, `CXX` set by `env/shell.sh` (which will be used for cross-compiling), set `WIN_CC` and `WIN_CXX` respectively.
+
+
 ### How do I add a desktop entry for the quasi-msys2 shell?
+
+There's a tiny script to install a shortcut. Right now there are no different shortcuts for different MSYS2 environments.
 
 Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
 
@@ -182,7 +203,7 @@ Last tested on LD 2.34, a more recent version might work.
 
 LD shipped by MSYS2 (was LD 2.37 last time I checked) works under Wine. If `binfmt_misc` is enabled, you can switch to it using `-fuse-ld=$MSYSTEM_PREFIX/bin/ld.exe`.
 
-You can try the native LD using `-fuse-ld=ld`. (Or remove `-fuse-ld=lld` from `WIN_CLANG_FLAGS` variable.)
+You can try the native LD using `-fuse-ld=ld`.
 
 ### My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
 

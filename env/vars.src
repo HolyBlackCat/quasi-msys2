@@ -32,7 +32,7 @@ __dummy_func() {
 
     # `MSYSTEM_PREFIX` is an MSYS2-style variable points to the MinGW installation path, i.e. `root/ucrt64`.
     # We load its default value from the primary makefile, but we optionally prefix it with the proper absolute path, unless it already exists as a symlink.
-    if test "$(readlink -m $MSYSTEM_PREFIX)" = "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"; then
+    if [[ "$(readlink -m $MSYSTEM_PREFIX)" == "$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX" ]]; then
         echo 'Found symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`, will use it.'
     else
         echo "$warn"'Didn'"'"'t find symlink `'"$MSYSTEM_PREFIX"'` -> `'"$QUASI_MSYS2_ROOT/root$MSYSTEM_PREFIX"'`.'
@@ -44,39 +44,53 @@ __dummy_func() {
     echo "MSYSTEM_PREFIX = $MSYSTEM_PREFIX"
 
     # Select C/C++ compilers.
-    if test "$MINGW_CC" || test "$MINGW_CXX"; then
+    local clang_ver_suffix=""
+    if [[ -v WIN_CC || -v WIN_CXX ]]; then
         # Back up the native compiler.
         export "WIN_NATIVE_CC=${CC-/usr/bin/cc}"
         export "WIN_NATIVE_CXX=${CXX-/usr/bin/c++}"
         export "WIN_NATIVE_LD=${LD-/usr/bin/ld}"
         # A custom compiler is specified, use it.
-        export "CC=$MINGW_CC"
-        export "CXX=$MINGW_CXX"
+        export "CC=$WIN_CC"
+        export "CXX=$WIN_CXX"
         unset LD # I don't think anything needs it? If we decide to add it, do we need some kind of `--target` for the linker?
-        export "WIN_NATIVE_WINDRES=$MINGW_WINDRES"
     else
         # No custom compiler is specified, try to guess.
-        echo -e '\nGuessing a compiler... To override, set `MINGW_CC` and `MINGW_CXX` and restart.'
+        echo -e '\nGuessing a compiler... To override, set `WIN_CC` and `WIN_CXX` and restart.'
 
         # First, try the native Clang.
         echo "Trying native Clang + LLD..."
-        if test -z "$WIN_CLANG_VER"; then
-            export "WIN_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort | tail -1 | sed 's/clang-//')"
-            # If we found no suffix OR the executable doesn't exist for some reason, set the suffix to NONE.
-            ( test -z "$WIN_CLANG_VER" || ! which "clang-$WIN_CLANG_VER" "clang++-$WIN_CLANG_VER" "lld-$WIN_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_CLANG_VER=NONE"
-            echo '  Guessed Clang version suffix: WIN_CLANG_VER = '"$WIN_CLANG_VER"
-            echo '  You can override it by setting it to a number or to `NONE` for no suffix.'
-        fi
-        if test "$WIN_CLANG_VER" = "NONE"; then
-            local clang_ver_suffix=""
+        if [[ -v WIN_NATIVE_CLANG_CC || -v WIN_NATIVE_CLANG_CXX || -v WIN_NATIVE_CLANG_LD ]]; then
+            echo '  Custom binaries were specified:'
+            echo '    WIN_NATIVE_CLANG_CC = '"$WIN_NATIVE_CLANG_CC"
+            echo '    WIN_NATIVE_CLANG_CXX = '"$WIN_NATIVE_CLANG_CXX"
+            echo '    WIN_NATIVE_CLANG_LD = '"$WIN_NATIVE_CLANG_LD"
+            if [[ ! -v WIN_NATIVE_CLANG_CC || ! -v WIN_NATIVE_CLANG_CXX || ! -v WIN_NATIVE_CLANG_LD ]]; then
+                echo "$warn"'You must specify all three binaries.'
+            fi
         else
-            local clang_ver_suffix="-$WIN_CLANG_VER"
-        fi
-        # Those variables are used by our Clang wrapper in `env/wrappers`.
-        export "WIN_NATIVE_CLANG_CC=clang$clang_ver_suffix"
-        export "WIN_NATIVE_CLANG_CXX=clang++$clang_ver_suffix"
+            if [[ -v WIN_NATIVE_CLANG_VER ]]; then
+                echo '  Using user-provided version suffix: WIN_NATIVE_CLANG_VER = '"$WIN_NATIVE_CLANG_VER"
+            else
+                export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort | tail -1 | sed 's/clang-//')"
+                # If we found no suffix OR the executable doesn't exist for some reason, set the suffix to NONE.
+                ( test -z "$WIN_NATIVE_CLANG_VER" || ! which "clang-$WIN_NATIVE_CLANG_VER" "clang++-$WIN_NATIVE_CLANG_VER" "lld-$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_NATIVE_CLANG_VER=NONE"
+                echo '  Guessed Clang version suffix: WIN_NATIVE_CLANG_VER = '"$WIN_NATIVE_CLANG_VER"
+                echo '  You can override it by setting it to a number or to `NONE` for no suffix.'
+            fi
 
-        if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "lld$clang_ver_suffix" >/dev/null 2>/dev/null; then
+            if test "$WIN_NATIVE_CLANG_VER" = "NONE"; then
+                local clang_ver_suffix=""
+            else
+                local clang_ver_suffix="-$WIN_NATIVE_CLANG_VER"
+            fi
+            # Those variables are used by our Clang wrapper in `env/wrappers`.
+            export "WIN_NATIVE_CLANG_CC=clang$clang_ver_suffix"
+            export "WIN_NATIVE_CLANG_CXX=clang++$clang_ver_suffix"
+            export "WIN_NATIVE_CLANG_LD=lld$clang_ver_suffix"
+        fi
+
+        if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "$WIN_NATIVE_CLANG_LD" >/dev/null 2>/dev/null; then
             # Successfully found a native Clang.
             echo "Success! Will use wrappers for the native Clang."
 
@@ -100,15 +114,18 @@ __dummy_func() {
                 echo "To avoid conflicts with the MSYS2 Clang, absolute paths will be used."
                 export "WIN_NATIVE_CLANG_CC=$(which $WIN_NATIVE_CLANG_CC)"
                 export "WIN_NATIVE_CLANG_CXX=$(which $WIN_NATIVE_CLANG_CXX)"
+                export "WIN_NATIVE_CLANG_LD=$(which $WIN_NATIVE_CLANG_LD)"
             fi
 
+            echo ''
             echo "WIN_NATIVE_CLANG_CC = $WIN_NATIVE_CLANG_CC"
             echo "WIN_NATIVE_CLANG_CXX = $WIN_NATIVE_CLANG_CXX"
+            echo "WIN_NATIVE_CLANG_LD = $WIN_NATIVE_CLANG_LD"
 
             # Now that `WIN_NATIVE_CLANG_{CC,CXX}` are stabilized, copy them to `WIN_NATIVE_{CC,CXX}`.
             export "WIN_NATIVE_CC=${CC-${WIN_NATIVE_CLANG_CC}}"
             export "WIN_NATIVE_CXX=${CXX-${WIN_NATIVE_CLANG_CXX}}"
-            export "WIN_NATIVE_LD=${LD-lld$clang_ver_suffix}"
+            export "WIN_NATIVE_LD=${LD-${WIN_NATIVE_CLANG_LD}}"
             # Update `CC` and `CXX` after backing them up.
             export "CC=win-clang"
             export "CXX=win-clang++"
@@ -123,35 +140,29 @@ __dummy_func() {
             # `-femulated-tls` is necessary when using libstdc++ atomics with Clang. Conversely, libc++ atomics need `-fno-emulated-tls`.
             # `-rtlib`, `-unwindlib` - not sure about those, guessed experimentally to match what MSYS2 does.
             # `-resource-dir` - not sure if only needed on CLANG{32,64} environments, probably yes.
-            if test -z "$WIN_CLANG_FLAGS"; then
-                export "WIN_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=lld$clang_ver_suffix -pthread"
+            if [[ ! -v WIN_NATIVE_CLANG_FLAGS ]] then
+                export "WIN_NATIVE_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=$WIN_NATIVE_CLANG_LD -pthread"
                 if [[ $MSYSTEM != CLANG* ]]; then
                     # `-stdlib=libstdc++ -rtlib=libgcc` are used by default on my Ubuntu Clang, adding them just in case.
-                    export "WIN_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc -unwindlib=libgcc"
+                    export "WIN_NATIVE_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc -unwindlib=libgcc"
                 else
                     # `-fno-emulated-tls` is used by default on my Ubuntu Clang, adding it just in case.
-                    export "WIN_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"
+                    export "WIN_NATIVE_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"
                     # The `find` command is used to descend into the only subdirectory, named after the Clang version.
                     local clang_res_dir="$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit)"
                     if [[ $clang_res_dir && $(basename "$clang_res_dir") == $(basename "$("$WIN_NATIVE_CLANG_CC" -print-resource-dir)") ]]; then
-                        export "WIN_CLANG_FLAGS+= -resource-dir=$clang_res_dir"
+                        export "WIN_NATIVE_CLANG_FLAGS+= -resource-dir=$clang_res_dir"
                     else
                         echo "$warn""Couldn't find a suitable Clang resource directory in the MSYS2 installation. Either MSYS2 Clang is not installed or it has a different version compared to the native Clang. Must restart this shell after fixing this."
                     fi
                 fi
             fi
-            echo "WIN_CLANG_FLAGS = $WIN_CLANG_FLAGS"
-
-            if which "llvm-windres$clang_ver_suffix" >/dev/null 2>/dev/null; then
-                export "WIN_NATIVE_WINDRES=llvm-windres$clang_ver_suffix"
-                echo "WIN_NATIVE_WINDRES = $WIN_NATIVE_WINDRES"
-            else
-                echo "$warn""Couldn't find \`llvm-windres$clang_ver_suffix\`. Will try to run MSYS2 Windres using Wine, which might be slow."
-            fi
+            echo "WIN_NATIVE_CLANG_FLAGS = $WIN_NATIVE_CLANG_FLAGS"
         else
             # Couldn't find a native Clang.
             unset WIN_NATIVE_CLANG_CC
             unset WIN_NATIVE_CLANG_CXX
+            unset WIN_NATIVE_CLANG_LD
             echo "Fail."
             echo ''
             echo "$warn"'Unable to find a native Clang (and/or LLD).'
@@ -193,16 +204,25 @@ __dummy_func() {
         fi
     fi
 
-    # Select a resource compiler. CMake sometimes needs this variable?
-    if test "$MINGW_RC"; then
-        export "RC=$MINGW_RC"
+    echo ''
+
+    # Select Winres. The variable named `RC` is sometimes used by CMake.
+    if [[ -v WIN_RC ]]; then
+        export "RC=$WIN_RC"
     else
+        # `clang_ver_suffix` is still accessible here, let's use it.
+        [[ -v WIN_NATIVE_CLANG_WINDRES ]] || export "WIN_NATIVE_CLANG_WINDRES=llvm-windres$clang_ver_suffix"
+        if ! which "$WIN_NATIVE_CLANG_WINDRES" >/dev/null 2>/dev/null; then
+            echo "$warn""Couldn't find Windres \`$WIN_NATIVE_CLANG_WINDRES\`. Will try to run MSYS2 Windres using Wine, which might be slow. You should install the \`llvm\` native package to get the native Windres."
+        fi
+
+        # Note that `windres` is our own wrapper script.
         export "RC=windres"
     fi
 
     # Create a variable for `win-ldd`. Not sure if anyone uses this, it's mostly for my convenience.
-    if test "$MINGW_LDD"; then
-        export "LDD=$MINGW_LDD"
+    if test "$WIN_LDD"; then
+        export "LDD=$WIN_LDD"
     else
         export "LDD=win-ldd"
     fi
@@ -212,6 +232,8 @@ __dummy_func() {
     echo "CXX = $CXX"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_CC  = $WIN_NATIVE_CC"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_CXX = $WIN_NATIVE_CXX"
+    [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_LD  = $WIN_NATIVE_LD"
+    echo "RC  = $RC"
     echo ''
 
 

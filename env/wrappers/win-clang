@@ -1,2 +1,2 @@
 #!/bin/sh
-"$WIN_NATIVE_CLANG_CC" --start-no-unused-arguments $WIN_CLANG_FLAGS --end-no-unused-arguments "$@"
+"$WIN_NATIVE_CLANG_CC" --start-no-unused-arguments $WIN_NATIVE_CLANG_FLAGS --end-no-unused-arguments "$@"

@@ -164,11 +164,11 @@ If you don't want certain components of the environment, you can study `all.src`
 
 ### How do I use different [MSYS2 environments](https://www.msys2.org/docs/environments/)?
 
-The environment can be changed using `echo DesiredEnvName >msystem.txt`, preferably in a clean repository. If you want multiple environments, you need multiple copies of Quasi-MSYS2.
+The environment can be changed using `echo ... >msystem.txt` (where `...` can be e.g. `CLANG64`), preferably in a clean repository. If you want multiple environments, you need multiple copies of quasi-msys2.
 
 All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in, since Cygwin doesn't seem to work with Wine. Also `CLANGARM64` wasn't tested at all.)
 
-On `CLANG64` and `CLANG32`, when using the native Clang, it's strongly recommended to install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On those, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
+On `CLANG64`, when using the native Clang, you must install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On this environment, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
 
 ### How do I add a desktop entry for the quasi-msys2 shell?
 
@@ -241,7 +241,7 @@ Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output tw
 
   * `shell.sh` — Creates a new Bash shell and runs `source all.src` in it. Do `exit` to return to the original shell.
 
-  * `integration.mk` — Generates a desktop file for the Quasi-MSYS2 shell.
+  * `integration.mk` — Generates a desktop file for the quasi-msys2 shell.
 
   * `duplicate_exe_outputs.src` — Modifies `CC` and `CXX` variables to point to wrappers that duplicate the produced executables without extensions. This can have with some build systems.
 

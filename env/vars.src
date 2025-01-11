@@ -60,12 +60,12 @@ __dummy_func() {
 
         # First, try the native Clang.
         echo "Trying native Clang + LLD..."
-        if [[ -v WIN_NATIVE_CLANG_CC || -v WIN_NATIVE_CLANG_CXX || -v WIN_NATIVE_CLANG_LD ]]; then
+        if [[ -v WIN_NATIVE_CLANG_CC || -v WIN_NATIVE_CLANG_CXX || -v WIN_NATIVE_CLANG_USE_LD ]]; then
             echo '  Custom binaries were specified:'
             echo '    WIN_NATIVE_CLANG_CC = '"$WIN_NATIVE_CLANG_CC"
             echo '    WIN_NATIVE_CLANG_CXX = '"$WIN_NATIVE_CLANG_CXX"
-            echo '    WIN_NATIVE_CLANG_LD = '"$WIN_NATIVE_CLANG_LD"
-            if [[ ! -v WIN_NATIVE_CLANG_CC || ! -v WIN_NATIVE_CLANG_CXX || ! -v WIN_NATIVE_CLANG_LD ]]; then
+            echo '    WIN_NATIVE_CLANG_USE_LD = '"$WIN_NATIVE_CLANG_USE_LD" # This must be a relative path!
+            if [[ ! -v WIN_NATIVE_CLANG_CC || ! -v WIN_NATIVE_CLANG_CXX || ! -v WIN_NATIVE_CLANG_USE_LD ]]; then
                 echo "$warn"'You must specify all three binaries.'
             fi
         else
@@ -87,10 +87,10 @@ __dummy_func() {
             # Those variables are used by our Clang wrapper in `env/wrappers`.
             export "WIN_NATIVE_CLANG_CC=clang$clang_ver_suffix"
             export "WIN_NATIVE_CLANG_CXX=clang++$clang_ver_suffix"
-            export "WIN_NATIVE_CLANG_LD=lld$clang_ver_suffix"
+            export "WIN_NATIVE_CLANG_USE_LD=lld$clang_ver_suffix"
         fi
 
-        if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "$WIN_NATIVE_CLANG_LD" >/dev/null 2>/dev/null; then
+        if which "$WIN_NATIVE_CLANG_CC" "$WIN_NATIVE_CLANG_CXX" "$WIN_NATIVE_CLANG_USE_LD" >/dev/null 2>/dev/null; then
             # Successfully found a native Clang.
             echo "Success! Will use wrappers for the native Clang."
 
@@ -114,18 +114,18 @@ __dummy_func() {
                 echo "To avoid conflicts with the MSYS2 Clang, absolute paths will be used."
                 export "WIN_NATIVE_CLANG_CC=$(which $WIN_NATIVE_CLANG_CC)"
                 export "WIN_NATIVE_CLANG_CXX=$(which $WIN_NATIVE_CLANG_CXX)"
-                export "WIN_NATIVE_CLANG_LD=$(which $WIN_NATIVE_CLANG_LD)"
+                # Don't touch `WIN_NATIVE_CLANG_USE_LD` here, it can't be an absolute path!
             fi
 
             echo ''
             echo "WIN_NATIVE_CLANG_CC = $WIN_NATIVE_CLANG_CC"
             echo "WIN_NATIVE_CLANG_CXX = $WIN_NATIVE_CLANG_CXX"
-            echo "WIN_NATIVE_CLANG_LD = $WIN_NATIVE_CLANG_LD"
+            echo "WIN_NATIVE_CLANG_USE_LD = $WIN_NATIVE_CLANG_USE_LD"
 
             # Now that `WIN_NATIVE_CLANG_{CC,CXX}` are stabilized, copy them to `WIN_NATIVE_{CC,CXX}`.
             export "WIN_NATIVE_CC=${CC-${WIN_NATIVE_CLANG_CC}}"
             export "WIN_NATIVE_CXX=${CXX-${WIN_NATIVE_CLANG_CXX}}"
-            export "WIN_NATIVE_LD=${LD-${WIN_NATIVE_CLANG_LD}}"
+            export "WIN_NATIVE_LD=${LD-${WIN_NATIVE_CLANG_USE_LD}}"
             # Update `CC` and `CXX` after backing them up.
             export "CC=win-clang"
             export "CXX=win-clang++"
@@ -141,7 +141,7 @@ __dummy_func() {
             # `-rtlib`, `-unwindlib` - not sure about those, guessed experimentally to match what MSYS2 does.
             # `-resource-dir` - not sure if only needed on CLANG{32,64} environments, probably yes.
             if [[ ! -v WIN_NATIVE_CLANG_FLAGS ]]; then
-                export "WIN_NATIVE_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=$WIN_NATIVE_CLANG_LD -pthread"
+                export "WIN_NATIVE_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=$WIN_NATIVE_CLANG_USE_LD -pthread"
                 if [[ $MSYSTEM != CLANG* ]]; then
                     # `-stdlib=libstdc++ -rtlib=libgcc` are used by default on my Ubuntu Clang, adding them just in case.
                     export "WIN_NATIVE_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc -unwindlib=libgcc"
@@ -162,7 +162,7 @@ __dummy_func() {
             # Couldn't find a native Clang.
             unset WIN_NATIVE_CLANG_CC
             unset WIN_NATIVE_CLANG_CXX
-            unset WIN_NATIVE_CLANG_LD
+            unset WIN_NATIVE_CLANG_USE_LD
             echo "Fail."
             echo ''
             echo "$warn"'Unable to find a native Clang (and/or LLD).'

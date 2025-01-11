@@ -140,7 +140,7 @@ __dummy_func() {
             # `-femulated-tls` is necessary when using libstdc++ atomics with Clang. Conversely, libc++ atomics need `-fno-emulated-tls`.
             # `-rtlib`, `-unwindlib` - not sure about those, guessed experimentally to match what MSYS2 does.
             # `-resource-dir` - not sure if only needed on CLANG{32,64} environments, probably yes.
-            if [[ ! -v WIN_NATIVE_CLANG_FLAGS ]] then
+            if [[ ! -v WIN_NATIVE_CLANG_FLAGS ]]; then
                 export "WIN_NATIVE_CLANG_FLAGS=--target=$MSYSTEM_CHOST --sysroot=$MSYSTEM_PREFIX -fuse-ld=$WIN_NATIVE_CLANG_LD -pthread"
                 if [[ $MSYSTEM != CLANG* ]]; then
                     # `-stdlib=libstdc++ -rtlib=libgcc` are used by default on my Ubuntu Clang, adding them just in case.

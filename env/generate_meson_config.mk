@@ -14,9 +14,12 @@ endef
 
 override is32bit := $(if $(filter %32,$(MSYSTEM)),y)
 
+override meson_sys_root := $(if $(PKG_CONFIG_SYSROOT_DIR),$(PKG_CONFIG_SYSROOT_DIR),/)
+
 # Here we only set `exe_wrapper` if Wine is installed.
 override define contents :=
-[binaries]$(if $(shell which wine >/dev/null 2>/dev/null)$(filter 0,$(.SHELLSTATUS)),$(lf)exe_wrapper = 'wine')
+[binaries]
+$(if $(shell which wine >/dev/null 2>/dev/null)$(filter 0,$(.SHELLSTATUS)),exe_wrapper = 'wine',# exe_wrapper = ??)
 # Meson refuses to use those unless we explicitly tell it to. Something else might be missing.
 pkg-config = 'pkg-config'
 strip = 'strip'
@@ -33,9 +36,11 @@ cpu = '$(if $(is32bit),i686,x86_64)'
 endian = 'little'
 
 [properties]
+# This is not `MSYSTEM_PREFIX`, but rather its parent.
+# Meson assigns this to `PKG_CONFIG_SYSROOT_DIR`, so we just use the value of that variable.
+sys_root = '$(meson_sys_root)'
 # What's the difference? `root` seems to be undocumented...
-sys_root = '$(MSYSTEM_PREFIX)'
-root = '$(MSYSTEM_PREFIX)'
+root = '$(meson_sys_root)'
 endef
 
 # Note the "native file". It's not usually needed, but if a project tries to find a native library,

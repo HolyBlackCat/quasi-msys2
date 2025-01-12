@@ -10,10 +10,19 @@ Features:
 
 Here's how it works:
 
-* MinGW-based packages (compilers, libraries, etc) are downloaded from the MSYS2 repos.
-* Cygwin-based packages are not available (since Cygwin doesn't work well under Wine, if at all), but their native equivalents should be enough.
-* `pacman` is replaced with a small custom package manager (since `pacman` itself is Cygwin-based).
-* Optionally, [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine. This can help if your build system tries to run cross-compiled executables during build, and doesn't provide a customization mechanism to explicitly run Wine.
+* **Libraries:** Prebuilt libraries are downloaded from MSYS2 repos (the standard library and any third-libraries you need).
+
+* **Compiler:** The recommended choice is Clang (any native installation works, you don't need a separate version targeting Windows), quasi-msys2 makes it cross-compile by passing the right flags to it.<br/>
+  Alternatively, quasi-msys2 can download MSYS2 GCC/Clang and run them in Wine, but this is not recommended (slow and the build systems sometimes choke on it).<br/>
+  Alternatively, you can [bring your own compiler](#how-do-i-customize-the-environment) (e.g. a linux version of MinGW GCC).
+
+* **Build systems:** Must be installed natively. We make them cross-compile by passing the right flags and config files.
+
+* **Cygwin-based MSYS2 packages:** Are not available (because Cygwin doesn't work well under Wine, if at all), but they aren't very useful, because the same utilities are available on Linux natively.
+
+* **Package manager:** MSYS2 `pacman` also uses Cygwin, so we replace it with a small custom package manager.
+
+* **Wine:** Optionally, [`binfmt_misc`](https://en.wikipedia.org/wiki/Binfmt_misc) allows Windows executables to be transparently invoked via Wine. (This can help if your build system tries to run cross-compiled executables during build, and doesn't provide a customization mechanism to explicitly run Wine.)
 
 ## Usage
 
@@ -27,13 +36,13 @@ Here's how it works:
 
     * To install Wine, you need to [enable the `multilib` repository](https://wiki.archlinux.org/title/official_repositories#Enabling_multilib) first.
 
-    * Clang and LLD in the repos are usually outdated by one major version. If you don't like that, build from source or use AUR.
+    * Clang in the repos is usually outdated by one major version. If you don't like that, build from source or use AUR.
 
   * **Fedora:** `sudo dnf install make wget tar zstd gawk gpg wine llvm clang lld`
 
   * (similarly for other distros)
 
-  Wine is optional but recommended. `make --version` must be 4.3 or newer. While it's technically possible to operate without Clang+LLD, by running MSYS2 compilers in Wine, the build systems often choke on this. The LLVM package (as opposed to Clang and LLD) is currently only needed for `llvm-windres`, you can skip it if you don't need Windres.
+  Wine is optional but recommended. `make --version` must be 4.3 or newer. You can avoid Clang+LLD if you use an [external MinGW GCC installation](#how-do-i-customize-the-environment), or by running MSYS2 compilers in Wine , the build systems often choke on this. The LLVM package (as opposed to Clang and LLD) is currently only needed for `llvm-windres`, you can skip it if you don't need Windres.
 
 * Install quasi-msys2:
   ```bash
@@ -43,7 +52,7 @@ Here's how it works:
   ```
   You can also [`make install` third-party libraries](#package-manager-usage), if MSYS2 provides them.
 
-  For selecting MSYS2 compiler flavor, [see FAQ](#how-do-i-use-different-msys2-environments).
+  For selecting the MSYS2 environment (the flavor of MinGW), [see FAQ](#how-do-i-use-different-msys2-environments).
 * Open quasi-msys2 shell:
   ```bash
   env/shell.sh
@@ -62,14 +71,14 @@ Here's how it works:
   * With Meson: `meson` as usual.
 
 * Other tools that work in `env/shell.sh`:
-  * `pkgconf` (and `pkg-config`)
+  * `pkg-config` (and `pkgconf`)
   * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
   * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
   * `windres` (calls `llvm-windres` with appropriate flags if installed, or falls back to running MSYS2 Windres in Wine)
 
 * Accessing non-cross compilers and other native tools:
 
-  * Use absolute paths (e.g. `/usr/bin/gcc`) to access non-cross compilers and native utilities (CMake, Meson, etc).
+  * Use absolute paths (e.g. `/usr/bin/gcc`) to access non-cross compilers and tools (CMake, Meson, etc), if you need to produce a Linux executable.
 
   * The only exception is `win-native-pkg-config` to access the native `pkg-config`, because we control pkg-config using environment variables rather than by providing a custom executable. (The `win-native-pkg-config` helper script simply unsets all pkg-config-related environment variables before running it.)
 
@@ -77,7 +86,7 @@ Here's how it works:
 
 I try to support Rust for completeness, but the support is experimental.
 
-You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` natively (outside of quasi-msys2) and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform.
+You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` natively (outside of quasi-msys2) and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform (inside only because `env/shell.sh` sets `CARGO_BUILD_TARGET`).
 
 Then you can use:
 
@@ -131,7 +140,7 @@ Here are some common ones:
 
 * If a package depends on a specific version of some other package, the exact version of that package is not checked. This shouldn't affect you, as long as you don't manually install outdated packages.
 
-* Package conflicts are handled in a crude manner. Information about package conflits provided in the package database is ignored, but if you try to install a package providing a file that already exists, the installation will fail. In most cases this is good enough.
+* Package conflicts are handled crudely. We don't respect the conflict annotations in the packages, but at least we refuse to overwrite files, which should normally be enough.
 
 * You can't run several instances of the package manager in the same installation in parallel. There's no locking mechanism, so this can cause weird errors.
 
@@ -148,7 +157,9 @@ But you don't need to copy everything if you're making a backup, assuming all fi
 
 To restore such backup to a working state, run `make apply-delta` in it.
 
-## Not-so-frequently asked questions
+Outdated packages linger in the repos for a few years, so if you just want to lock specific package versions, you don't need to backup the `cache`.
+
+## FAQ
 
 ### How do I run commands non-interactively?
 
@@ -182,6 +193,10 @@ Some useful variables are:
 
   * You can set `WIN_NATIVE_CLANG_VER` to a single number (e.g. `19`) if your native Clang is suffixed with a version (e.g. `clang++-19`), or `NONE` if not suffixed (just `clang++`). We try to guess this number. You can also specify custom native Clang binaries with `WIN_NATIVE_CLANG_{CC,CXX,LD}`, then you must specify all three (`..._LD` should typically point to `lld`).
 
+* Using an entirely custom cross-compiler:
+
+  * You can set `WIN_CC` and `WIN_CXX` e.g. to an existing native MinGW GCC installation.
+
 * Customizing the native compiler that's used for non-cross compilation. This is something we only report to the build systems (currently only Meson), and don't use directly.
 
   * The specified `CC`, `CXX`, `LD` will be used for this. Their values are then replaced with the cross-compiler by `env/shell.sh`.
@@ -193,7 +208,7 @@ Some useful variables are:
 
 There's a tiny script to install a shortcut. Right now there are no different shortcuts for different MSYS2 environments.
 
-Use `make -f env/integration.mk`. To undo, invoke it again with the `uninstall` flag.
+Use `make -f env/integration.mk` to install. To undo, invoke it again with the `uninstall` flag.
 
 ### Using LD instead of LLD when compiling with the native Clang.
 
@@ -218,7 +233,7 @@ Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output tw
 
 * `index/` — For each installed package it contains a file with a list of files owned by it.
 
-  `root/` and `index/` must always stay in sync, otherwise things will break.
+  `root/` and `index/` should always stay in sync, otherwise things can break. But you can install your own files to `root/`.
 
 * `cache/` — Stores cached archives of the packages downloaded from the repo.
 
@@ -228,7 +243,7 @@ Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output tw
 
 * `database.mk.bak` — A backup of `database.mk` performed the last time a new database was downloaded.
 
-* `database.current_original[.sig]` — The original database file downloaded from the repository. This is used to speed up database updated (if the downloaded database matches this file, we don't need to reparse it).
+* `database.current_original[.sig]` — The original database file downloaded from the repository. This is used to speed up database updates (if the downloaded database matches this file, we don't need to reparse it).
 
    The signature is checked at download time, and is preserved for informational purposes only.
 
@@ -240,7 +255,7 @@ Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output tw
 
 * `msys2_pacmake_base_dir` — An empty file marking the installation directory. The package manager refuses to operate if it's not in the working directory, to make sure you don't accidentally create a new installation.
 
-* (temporary) `database.db` — The database downloaded from the repository, in the process of being converted to our custom format.
+* (temporary) `database.db{,.unverified,.sig}` — The database downloaded from the repository, in the process of being converted to our custom format (`.unverified` is before the signature check).
 
 * (temporary) `database/` — Temporary files created when processing a downloaded database.
 
@@ -257,6 +272,8 @@ Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output tw
   * `fake_bin/` — Contains the wrappers generated by `fakebin.mk`
 
   * `vars.src` — Sets up environment variables, including `PATH`. Must be run as `source path/to/vars.src`.
+
+  * `generate_meson_config.mk` — Generates `meson_cross_file.ini` and `meson_native_file.ini`. I couldn't figure out how to read environment variables in them, if possible at all, so they are generated.
 
   * `all.src` — Runs all the files above, in quiet mode. Must be run as `source path/to/all.src`.
 

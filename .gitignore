@@ -2,6 +2,8 @@
 /database.current_original
 /database.current_original.sig
 /database.db
+/database.db.sig
+/database.db.unverified
 /database.mk
 /database.mk.bak
 /database/**

@@ -10,7 +10,7 @@ Features:
 
 Here's how it works:
 
-* **Libraries:** Prebuilt libraries are downloaded from MSYS2 repos (the standard library and any third-libraries you need).
+* **Libraries:** Prebuilt libraries are downloaded from MSYS2 repos (the standard library and any third-party libraries you need).
 
 * **Compiler:** The recommended choice is Clang (any native installation works, you don't need a separate version targeting Windows), quasi-msys2 makes it cross-compile by passing the right flags to it.<br/>
   Alternatively, quasi-msys2 can download MSYS2 GCC/Clang and run them in Wine, but this is not recommended (slow and the build systems sometimes choke on it).<br/>

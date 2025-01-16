@@ -28,7 +28,7 @@ Here's how it works:
 
 * Install dependencies:
 
-  * **Ubuntu / Debian:** `sudo apt install make wget tar zstd gawk gpg wine`
+  * **Ubuntu / Debian:** `sudo apt install make wget tar zstd gawk gpg gpgv wine`
 
     * Install latest LLVM, Clang and LLD using `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`. Or you can try the stock ones from Ubuntu repos, but they are often outdated.
 

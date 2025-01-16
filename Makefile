@@ -259,10 +259,15 @@ override sig_update_keyring = \
 	$(call safe_shell_exec,LANG= gpg --batch --yes -o ./$(call quote,$(sig_keyring_path)) --dearmor $(call quote,$(sig_keyring_path_filtered)))\
 	$(call safe_shell_exec,rm -f $(call quote,$(sig_keyring_path_filtered)))
 
+# Check that gpgv is installed. We do this manually to avoid a confusing "signature check failed" when gpgv isn't installed.
+override sig_check_gpgv_installed = $(if $(__sig_check_gpgv_installed_once),$(call var,__sig_check_gpgv_installed_once :=)$(call safe_shell_exec,gpgv --version))
+override __sig_check_gpgv_installed_once := 1
+
 # Verifies a signature against the current keyring. Causes an error on failure.
 # $1 is the file.
 # $2 is the signature.
 override sig_verify = \
+	$(sig_check_gpgv_installed)\
 	$(if $(filter-out 0,$(call shell_status,LANG= gpgv --keyring ./$(call quote,$(sig_keyring_path)) $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
 		$(error Signature check failed!$(lf)File: $1$(lf)Signature: $2$(lf)Try again with `--trace` to see GPG output)\
 	)

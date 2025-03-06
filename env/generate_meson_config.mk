@@ -48,10 +48,10 @@ endef
 # And as a bonus, we can set the native compiler to Clang if we know we have it.
 override define contents_nat :=
 [binaries]
-$(if $(WIN_NATIVE_CC),c = '$(WIN_NATIVE_CC)',# c = ??)
-$(if $(WIN_NATIVE_CXX),cpp = '$(WIN_NATIVE_CXX)',# cpp = ??)
-$(if $(WIN_NATIVE_LD),c_ld = '$(WIN_NATIVE_LD)',# c_ld = ??)
-$(if $(WIN_NATIVE_LD),cpp_ld = '$(WIN_NATIVE_LD)',# cpp_ld = ??)
+$(if $(WIN_HOST_CC),c = '$(WIN_HOST_CC)',# c = ??)
+$(if $(WIN_HOST_CXX),cpp = '$(WIN_HOST_CXX)',# cpp = ??)
+$(if $(WIN_HOST_LD),c_ld = '$(WIN_HOST_LD)',# c_ld = ??)
+$(if $(WIN_HOST_LD),cpp_ld = '$(WIN_HOST_LD)',# cpp_ld = ??)
 # This one is important. We need a wrapper that unsets our environment variables.
 pkg-config = 'win-native-pkg-config'
 # The unmodified cmake.

@@ -13,8 +13,8 @@ Here's how it works:
 * **Libraries:** Prebuilt libraries are downloaded from MSYS2 repos (the standard library and any third-party libraries you need).
 
 * **Compiler:** The recommended choice is Clang (any native installation works, you don't need a separate version targeting Windows), quasi-msys2 makes it cross-compile by passing the right flags to it.<br/>
-  Alternatively, quasi-msys2 can download MSYS2 GCC/Clang and run them in Wine, but this is not recommended (slow and the build systems sometimes choke on it).<br/>
-  Alternatively, you can [bring your own compiler](#how-do-i-customize-the-environment) (e.g. a linux version of MinGW GCC).
+  Alternatively, you can [install MinGW GCC](#how-do-i-use-a-different-compiler) from your distro's package manager and use that.<br/>
+  Alternatively, quasi-msys2 can download MSYS2 GCC/Clang and run them in Wine, but this is not recommended (slow and the build systems sometimes choke on it).
 
 * **Build systems:** Must be installed natively. We make them cross-compile by passing the right flags and config files.
 
@@ -42,7 +42,7 @@ Here's how it works:
 
   * (similarly for other distros)
 
-  Wine is optional but recommended. `make --version` must be 4.3 or newer. You can avoid Clang+LLD if you use an [external MinGW GCC installation](#how-do-i-customize-the-environment), or by running MSYS2 compilers in Wine , the build systems often choke on this. The LLVM package (as opposed to Clang and LLD) is currently only needed for `llvm-windres`, you can skip it if you don't need Windres.
+  Wine is optional but recommended. `make --version` must be 4.3 or newer. Clang is the recommended compiler choice, but you [use something else](#how-do-i-use-a-different-compiler), you don't have to install it.
 
 * Install quasi-msys2:
   ```bash
@@ -175,27 +175,83 @@ If you don't want certain components of the environment, you can study `all.src`
 
 ### How do I use different [MSYS2 environments](https://www.msys2.org/docs/environments/)?
 
-The environment can be changed using `echo ... >msystem.txt` (where `...` can be e.g. `CLANG64`), preferably in a clean repository. If you want multiple environments, you need multiple copies of quasi-msys2.
+The environment can be changed using `echo ... >msystem.txt` (where `...` can be e.g. `MINGW64`), preferably in a clean repository. If you want multiple environments, you need multiple copies of quasi-msys2.
 
 All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in, since Cygwin doesn't seem to work with Wine. Also `CLANGARM64` wasn't tested at all.)
 
-On `CLANG64`, when using the native Clang, you must install the same native Clang version as the one used by MSYS2 (at least the same major version, different minor versions seem to be compatible?). On this environment, installing or updating MSYS2 Clang requires a shell restart for the native Clang to work correctly.
+On `CLANG64`, when using the native Clang, you must install the same native Clang version as the one used by MSYS2 (only the majro version must match).
 
-### How do I customize the environment?
+#### How to choose the environment?
 
-Study [`env/vars.src`](/env/vars.src) for the environment variables you can customize.
+`UCRT64` is a good default. Use `MINGW64` if you want the old C standard library (`msvcrt.dll` instead of `ucrtbase.dll`).
 
-Some useful variables are:
+I don't see a good reason to use `CLANG64` (other than the ability to build with sanitizers, but the resulting executable won't run in Clang anyway), and it has a downside of locking you to a specific native Clang version.
 
-* Customizing the native Clang that is used for cross-compilation:
+### How do I use a different compiler?
+
+You can study [`env/vars.src`](/env/vars.src) for the environment variables you can customize.
+
+We support the following compilers. By default we pick the first one that works (and set `CC`,`CXX` to point to it), but you can override the choice by setting `WIN_DEFAULT_COMPILER` env variable to the respective compiler name.
+
+* **Native Clang** (`native_clang`)
+
+  The recommended option. Requires Clang to be installed on the system (the regular version of Clang, nothing MinGW-specific). See the beginning of this file for the recommended installation strategy.
+
+  We provide `win-clang`, `win-clang++` scripts that will call your native Clang with the correct flags for cross-compilation.
+
+  You have to install a compiler in quasi-msys2 for this to work, just to provide the basic libraries. `make install _gcc` in most [environments](#how-do-i-use-different-msys2-environments), or `make install _clang` in `CLANG64` environment.
+
+  We're using the LLD linker by default, so that should be installed too, but in theory you can configure Clang to use something else.
+
+  We need the `llvm` package (as opposed to Clang and LLD) solely for `llvm-windres`. If you don't need Windres, you can skip it.
+
+  If using the `CLANG64` [environment](#how-do-i-use-different-msys2-environments), the major version of the native Clang you have must match the version of MSYS2 Clang you installed in quasi-msys2. And remember that like in MSYS2, in quasi-msys2 there is no simple way to install an outdated package unless you backed up `database.mk` package database from before the update; so it's easier to change the system Clang version to match, this is easiest to do on Ubuntu/Debian since https://apt.llvm.org/ lets you freely choose the version.
 
   * You can set `WIN_NATIVE_CLANG_FLAGS` to customize what flags are passed to your native Clang. We print the guessed flags when initializing `env/shell.sh`.
 
-  * You can set `WIN_NATIVE_CLANG_VER` to a single number (e.g. `19`) if your native Clang is suffixed with a version (e.g. `clang++-19`), or `NONE` if not suffixed (just `clang++`). We try to guess this number. You can also specify custom native Clang binaries with `WIN_NATIVE_CLANG_{CC,CXX,LD}`, then you must specify all three (`..._LD` should typically point to `lld`).
+  * You can set `WIN_NATIVE_CLANG_VER` to a single number (e.g. `19`) if your native Clang is suffixed with a version (e.g. `clang++-19`), or `NONE` if not suffixed (just `clang++`). We try to guess this number. You can also specify custom native Clang binaries with `WIN_NATIVE_CLANG_{CC,CXX,LD}`.
+
+* **Native MinGW GCC** (`native_gcc`)
+
+  This is a version of MinGW GCC installed from your system. This is not usable on the `CLANG64` environment. The specific package you need to install depends on the environment, see the table below.
+
+  We provide `win-gcc`, `win-g++` scripts that will call your native GCC with the adjusted header and library search paths.
+
+  **NOTE:** The behavior depends on whether you also install GCC in MSYS2 or not. It's better not to by default, if you want to use this compiler. If it's installed, we'll use the standard library from MSYS2 GCC instead of the one from your native GCC (we're forced to, because otherwise both will be in the search path and will conflict). This sounds a bit sketchy, especially so if the GCC versions don't match (in theory, judging by the directory names, the full X.Y.Z version number must match, but it remains to be seen how important this is).
+
+  Which package to install:
+
+  &nbsp;|MINGW32|MINGW64|UCRT64|Comments
+  ---|---|---|---|---
+  **Ubuntu / Debian**|`g++-mingw-w64-i686-posix`|`g++-mingw-w64-x86-64-posix`|`g++-mingw-w64-ucrt64`|<sup>1. The UCRT64 packages were added recently and might not exist on older LTS distro versions.<br/>2. There are also packages suffixed with `-win32` instead of `-posix`, which use a different "thread model". Quasi-msys2 will refuse to use them. I didn't test if they'd work or not, but it sounds like a bad idea, since MSYS2 uses the "posix" mode, and so do the mingw packages in all other distros. The UCRT64 package always uses the "posix" mode.<br/>3. There are also `gcc-...` packages that only include the C compiler and not the C++ one.</sup>
+  **Arch**|N/A|`mingw-w64-gcc`|N/A
+  **Fedora**|`mingw32-gcc-c++`|`mingw64-gcc-c++`|`ucrt64-gcc-c++`|<sup>There are also package without the `...-c++` suffix that only include the C compiler and not the C++ one.</sup>
+
+  Some customizations:
+
+  * We try to guess the compiler executable name, but you can override the detection by setting the `WIN_NATIVE_GCC_{CC,CXX}`, env variables.
+
+  * You can also override the compiler flags using `WIN_NATIVE_GCC_FLAGS`. Consult the default value which is logged during intialization.
+
+* **MSYS2 Clang** (`msys2_clang`)
+
+  This will run in Wine. Fine for a hello world, but build systems tend to choke on this.
+
+  Obiously the compiler needs to be installed in quasi-msys2 for this to work.
+
+* **MSYS2 GCC** (`msys2_gcc`)
+
+  This will run in Wine. Fine for a hello world, but build systems tend to choke on this.
+
+  Obiously the compiler needs to be installed in quasi-msys2 for this to work.
+
+  This is not available in the `CLANG64` environment.
+
+Some other customizations are:
 
 * Using an entirely custom cross-compiler:
 
-  * You can set `WIN_CC` and `WIN_CXX` e.g. to an existing native MinGW GCC installation.
+  * You can set `WIN_CC` and `WIN_CXX` to any compiler. This overrides the `WIN_DEFAULT_COMPILER=...` and the default compiler detection. `env/shell.sh` will set `CC`, `CXX` to the values of those variables.
 
 * Customizing the native compiler that's used for non-cross compilation. This is something we only report to the build systems (currently only Meson), and don't use directly.
 

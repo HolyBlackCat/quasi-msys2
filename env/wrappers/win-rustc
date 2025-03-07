@@ -1,3 +1,3 @@
 #!/bin/bash
-
-/usr/bin/rustc --target="$CARGO_BUILD_TARGET" -Clinker="$CC" "$@"
+set -u
+"$WIN_NATIVE_RUSTC" --target="$CARGO_BUILD_TARGET" -Clinker="$CC" "$@"

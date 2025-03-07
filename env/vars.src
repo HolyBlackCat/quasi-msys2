@@ -566,6 +566,13 @@ __dummy_func() {
     [[ $QUASI_MSYS2_QUIET ]] || echo "$rustc_linker_var = ${!rustc_linker_var}"
     [[ $QUASI_MSYS2_QUIET ]] || echo ''
 
+    if [[ ! -v WIN_NATIVE_RUSTC ]]; then
+        export WIN_NATIVE_RUSTC="$(which rustc 2>/dev/null)"
+        if [[ ! $WIN_NATIVE_RUSTC ]]; then
+            echo "Can't find \`rustc\`, disabling Rust support."
+        fi
+    fi
+
 
     # Update the PATH.
     export "WIN_ORIGINAL_PATH=$PATH"

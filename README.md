@@ -38,7 +38,7 @@ Here's how it works:
 
     * Clang in the repos is usually outdated by one major version. If you don't like that, build from source or use AUR.
 
-  * **Fedora:** `sudo dnf install make wget tar zstd gawk gpg wine llvm clang lld`
+  * **Fedora:** `sudo dnf install make wget tar zstd gawk which gpg wine llvm clang lld`
 
   * (similarly for other distros)
 

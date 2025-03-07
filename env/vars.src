@@ -533,7 +533,7 @@ __dummy_func() {
     [[ -f "$MSYSTEM_PREFIX/bin/cmake.exe" ]] && echo -e "$warn""MSYS2 CMake is installed. It won't function properly,\nget rid of it and use the \`win-cmake\` wrapper that calls the native CMake."
     # This variable is used by our wrapper in `env/wrappers`. We use an absolute path
     # to avoid collisions with MSYS2 CMake if it's installed for some reason.
-    export "WIN_NATIVE_CMAKE=$(which cmake)"
+    export "WIN_NATIVE_CMAKE=$(which cmake 2>/dev/null)"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_CMAKE = $WIN_NATIVE_CMAKE"
     # This variable is also used by our wrapper in `env/wrappers`, and contains the extra CMake flags.
     export "WIN_CMAKE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=$QUASI_MSYS2_ROOT/env/config/toolchain.cmake -DCMAKE_INSTALL_PREFIX=$MSYSTEM_PREFIX"
@@ -541,7 +541,7 @@ __dummy_func() {
 
     # And similarly for meson.
     # Note the "native file". It's not usually needed, but sometimes can be needed. See the comments in `env/generate_meson_config.mk`.
-    export "WIN_NATIVE_MESON=$(which meson)"
+    export "WIN_NATIVE_MESON=$(which meson 2>/dev/null)"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_NATIVE_MESON = $WIN_NATIVE_MESON"
     export "WIN_MESON_FLAGS=--cross-file=$QUASI_MSYS2_ROOT/env/config/meson_cross_file.ini --native-file=$QUASI_MSYS2_ROOT/env/config/meson_native_file.ini"
     [[ $QUASI_MSYS2_QUIET ]] || echo "WIN_MESON_FLAGS = $WIN_MESON_FLAGS"

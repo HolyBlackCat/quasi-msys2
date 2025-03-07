@@ -338,6 +338,7 @@ __dummy_func() {
         fi
     fi
     echo -n 'Default compiler: '
+    local warn_msys2_compiler=
     if [[ $selected_compiler == native_clang ]]; then
         echo 'Native Clang'
         local suggested_cc=win-clang
@@ -360,11 +361,13 @@ __dummy_func() {
         local suggested_native_windres="$WIN_NATIVE_GCC_WINDRES"
     elif [[ $selected_compiler == msys2_clang ]]; then
         echo 'MSYS2 Clang'
+        local warn_msys2_compiler=1
         local suggested_cc=clang
         local suggested_cxx=clang++
         [[ -f "$MSYSTEM_PREFIX/bin/clang.exe" ]] || local suggested_compiler_broken=1
     elif [[ $selected_compiler == msys2_gcc && $MSYSTEM != CLANG* ]]; then
         echo 'MSYS2 GCC'
+        local warn_msys2_compiler=1
         local suggested_cc=gcc
         local suggested_cxx=g++
         [[ -f "$MSYSTEM_PREFIX/bin/gcc.exe" ]] || local suggested_compiler_broken=1
@@ -372,6 +375,9 @@ __dummy_func() {
         echo "$warn""No suitable compiler!"
     else
         echo "$warn""Invalid manually selected compiler: $selected_compiler"
+    fi
+    if [[ $warn_msys2_compiler == 1 && ! -v WIN_DEFAULT_COMPILER ]]; then
+        echo "$warn""Running MSYS2 compilers in Wine is slow and doesn't work well with build systems. If you're not doing this intentionally, make sure you followed the instructions in the README correctly."
     fi
 
     unset CC

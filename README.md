@@ -86,12 +86,15 @@ Here's how it works:
 
 I try to support Rust for completeness, but the support is experimental.
 
-You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` natively (outside of quasi-msys2) and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform (inside only because `env/shell.sh` sets `CARGO_BUILD_TARGET`).
+You don't need any extra MSYS2 packages (other than `make install _gcc` for the libraries). Install `rustup` natively (outside of quasi-msys2) and run `rustup target add $CARGO_BUILD_TARGET` inside `env/shell.sh` to install the standard library for the target platform (calling it inside solely because `env/shell.sh` sets `CARGO_BUILD_TARGET`, you can call it from anywhere if you know the value).
 
 Then you can use:
 
-* `win-rustc` to compile a single file (this wrapper calls `/usr/bin/rustc` with flags for cross-compilation).
 * `cargo` (we set environment variables to make it cross-compile by default).
+
+* `win-rustc` to compile a single file (this wrapper calls `/usr/bin/rustc` with flags for cross-compilation).<br/>
+  Use `host-rustc` to compile for the host system (like `rustc` outside of quasi-msys2 shell).<br/>
+  The plain `rustc` will likely not work correctly in quasi-msys2 shell.
 
 ## Package manager usage
 

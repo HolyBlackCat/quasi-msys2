@@ -468,6 +468,7 @@ __dummy_func() {
     echo "WIN_HOST_CC  = $WIN_HOST_CC"
     echo "WIN_HOST_CXX = $WIN_HOST_CXX"
     echo "WIN_HOST_LD  = $WIN_HOST_LD"
+    echo ''
 
 
 
@@ -558,20 +559,30 @@ __dummy_func() {
     # Rust variables:
 
     # Convert the target name to what rustc understands. You can get the same conversion from `clang --target=... --version`.
-    export CARGO_BUILD_TARGET="${MSYSTEM_CHOST/%w64-mingw32/pc-windows-gnu}"
-    local uppercase_target="${CARGO_BUILD_TARGET^^}"
-    local rustc_linker_var="CARGO_TARGET_${uppercase_target//-/_}_LINKER"
-    export "$rustc_linker_var"="$CC"
-    [[ $QUASI_MSYS2_QUIET ]] || echo "CARGO_BUILD_TARGET = $CARGO_BUILD_TARGET"
-    [[ $QUASI_MSYS2_QUIET ]] || echo "$rustc_linker_var = ${!rustc_linker_var}"
-    [[ $QUASI_MSYS2_QUIET ]] || echo ''
-
     if [[ ! -v WIN_NATIVE_RUSTC ]]; then
         export WIN_NATIVE_RUSTC="$(which rustc 2>/dev/null)"
         if [[ ! $WIN_NATIVE_RUSTC ]]; then
             echo "Can't find \`rustc\`, disabling Rust support."
         fi
     fi
+
+    if [[ $WIN_NATIVE_RUSTC ]]; then
+        export CARGO_BUILD_TARGET="${MSYSTEM_CHOST/%w64-mingw32/pc-windows-gnu}"
+        local cargo_host_target="$(rustc -vV | grep -oP '(?<=host: ).*')"
+        local uppercase_build_target="${CARGO_BUILD_TARGET^^}"
+        local uppercase_host_target="${cargo_host_target^^}"
+        local rustc_build_linker_var="CARGO_TARGET_${uppercase_build_target//-/_}_LINKER"
+        local rustc_host_linker_var="CARGO_TARGET_${uppercase_host_target//-/_}_LINKER"
+        export "$rustc_build_linker_var"="$CC"
+        export "$rustc_host_linker_var"="$WIN_HOST_CC"
+
+        echo 'Rust:'
+        echo "    CARGO_BUILD_TARGET = $CARGO_BUILD_TARGET"
+        echo "    $rustc_build_linker_var = ${!rustc_build_linker_var}"
+        echo "    $rustc_host_linker_var = ${!rustc_host_linker_var}"
+        echo ''
+    fi
+
 
 
     # Update the PATH.

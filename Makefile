@@ -729,18 +729,24 @@ endif
 # Writes a new list of requested packages (with versions) from $1.
 override pkg_set_request_list = $(call safe_shell_exec,echo >$(call quote,$(request_list_file)) $(call quote,$(sort $1)))
 
-# $1 is a list of packages, without versions. Emits an error if any packages in $1 are in the requested list.
-override pkg_stop_if_in_request_list = \
-	$(call var,_local_delta := $(sort $(filter $1,$(pkg_request_list))))\
-	$(if $(_local_delta),$(error Following packages are already requested: $(_local_delta)\
-		$(lf)If the installation was interrupted, run `$(self) apply-delta` to recover)\
+# $1 is a list of packages, without versions. Warns if any packages in $1 are in the requested list.
+override pkg_warn_if_already_requested = \
+	$(call var,_local_cur_pkgs := $(pkg_request_list))\
+	$(if $(filter-out $(_local_cur_pkgs),$1),\
+    	$(call var,_local_filtered_pkgs := $(sort $(filter $1,$(_local_cur_pkgs))))\
+    	$(if $(_local_filtered_pkgs),$(info Following packages are already requested: $(_local_filtered_pkgs)))\
+	,\
+		$(info All those packages are already requested.)\
 	)
 
-# $1 is a list of packages, without versions. Emits an error if any packages in $1 are not in the requested list.
-override pkg_stop_if_not_in_request_list = \
-	$(call var,_local_delta := $(sort $(filter-out $(pkg_request_list),$1)))\
-	$(if $(_local_delta),$(error Following packages are already not requested: $(_local_delta)\
-		$(lf)If the removal was interrupted, run `$(self) apply-delta` to recover)\
+# $1 is a list of packages, without versions. Warns if any packages in $1 are not in the requested list.
+override pkg_warn_if_already_not_requested = \
+	$(call var,_local_cur_pkgs := $(pkg_request_list))\
+	$(if $(filter $(_local_cur_pkgs),$1),\
+    	$(call var,_local_filtered_pkgs := $(sort $(filter-out $(_local_cur_pkgs),$1)))\
+    	$(if $(_local_filtered_pkgs),$(info Following packages are already not requested: $(_local_filtered_pkgs)))\
+	,\
+		$(info All those packages are already not requested.)\
 	)
 
 # --- PACKAGE MANAGEMENT INTERFACE ---
@@ -753,11 +759,11 @@ override pkg_request_list_reset = $(call pkg_set_request_list,)
 
 # Adds packages to the list of requested packages.
 # $1 is a list of packages without versions, possibly aliases.
-override pkg_request_list_add = $(call var,_local_pkgs := $(call database_query_resolve_aliases,$1))$(call pkg_stop_if_in_request_list,$(_local_pkgs))$(call pkg_set_request_list,$(pkg_request_list) $(_local_pkgs))
+override pkg_request_list_add = $(call var,_local_pkgs := $(call database_query_resolve_aliases,$1))$(call pkg_warn_if_already_requested,$(_local_pkgs))$(call pkg_set_request_list,$(pkg_request_list) $(_local_pkgs))
 
 # Adds packages to the list of requested packages.
 # $1 is a list of packages without versions.
-override pkg_request_list_remove = $(call var,_local_pkgs := $(call database_query_resolve_aliases,$1))$(call pkg_stop_if_not_in_request_list,$(_local_pkgs))$(call pkg_set_request_list,$(filter-out $(_local_pkgs),$(pkg_request_list)))
+override pkg_request_list_remove = $(call var,_local_pkgs := $(call database_query_resolve_aliases,$1))$(call pkg_warn_if_already_not_requested,$(_local_pkgs))$(call pkg_set_request_list,$(filter-out $(_local_pkgs),$(pkg_request_list)))
 
 # Computes the delta between the current state and the desired state.
 # Returns a list of packages with prefixes: `>` means a package should be installed, and `<` means it should be removed.

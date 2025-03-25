@@ -50,7 +50,7 @@ Here's how it works:
   cd quasi-msys2
   make install _gcc _gdb # same as `make install mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb`
   ```
-  You can also [`make install` third-party libraries](#package-manager-usage), if MSYS2 provides them.
+  You can also [`make install` third-party libraries](#package-manager-usage), if MSYS2 provides them. You can skip `_gdb` if you don't need a debugger.
 
   For selecting the MSYS2 environment (the flavor of MinGW), [see FAQ](#how-do-i-use-different-msys2-environments).
 * Open quasi-msys2 shell:

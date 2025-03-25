@@ -42,7 +42,7 @@ Here's how it works:
 
   * (similarly for other distros)
 
-  Wine is optional but recommended. `make --version` must be 4.3 or newer. Clang is the recommended compiler choice, but you [use something else](#how-do-i-use-a-different-compiler), you don't have to install it.
+  Wine is optional but recommended. `make --version` must be 4.3 or newer. Clang is the recommended compiler choice, but if you [use something else](#how-do-i-use-a-different-compiler), you don't have to install it.
 
 * Install quasi-msys2:
   ```bash

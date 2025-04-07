@@ -40,6 +40,10 @@ Here's how it works:
 
   * **Fedora:** `sudo dnf install make wget tar zstd gawk which gpg wine llvm clang lld`
 
+  * **Termux:** `sudo dnf install make wget tar zstd gawk which gnupg gpgv llvm clang lld`
+
+    * In Termux all package manager operations below (`make install ...`) have to be peformed as `proot --link2symlink make install ...` (otherwise we can't extract package archives with hardlinks in them). The package installation will take a long time.
+
   * (similarly for other distros)
 
   Wine is optional but recommended. `make --version` must be 4.3 or newer. Clang is the recommended compiler choice, but if you [use something else](#how-do-i-use-a-different-compiler), you don't have to install it.

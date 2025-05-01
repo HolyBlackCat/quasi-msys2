@@ -11,6 +11,13 @@ ROOT_DIR := root
 # Download archives here.
 CACHE_DIR := cache
 
+# How many times to retry wget operations.
+# We perform retries by rerunning the command, because wget itself doesn't seem to retry after certain errors (SSL errors among others),
+#   and I couldn't find a flag to make it do so.
+WGET_NUM_RETRIES := 3
+# Wget timeout in seconds, after which we retry. If this is empty, the default value is used, which is 900 seconds (15 minutes) for some operations,
+#   and apparently infinite for some other operations.
+WGET_TIMEOUT_SEC := 15
 # Those flags are passed to `wget` when downloading packages and other files.
 WGET_FLAGS :=
 # If false, won't pass any custom flags other than `WGET_FLAGS`.
@@ -80,7 +87,7 @@ KEYRING_URL := https://raw.githubusercontent.com/msys2/MSYS2-keyring/master/msys
 
 
 # --- VERSION ---
-override version := 1.6.11
+override version := 1.6.12
 
 
 # --- GENERIC UTILITIES ---
@@ -122,6 +129,11 @@ override var = $(eval override $(subst $,$$$$,$1))
 # If you makefile uses single quotes everywhere, a decent way to transition is to manually search and replace `'(\$(?:.|\(.*?\)))'` with `$(call quote,$1)`.
 override quote = '$(subst ','"'"',$1)'
 
+# Repeats $2 string $1 times. The result is space-separated.
+# You can pass multiple space-separated numbers to `$1, then it will stop at the minimum number. This is good to prevent infinite loops.
+override repeat_n_times = $(call repeat_n_times_,$1,$2,)
+override repeat_n_times_ = $(if $(filter $1,$(words $3)),,$2 $(call repeat_n_times_,$1,$2,$3 x))
+
 ifeq ($(filter --trace,$(MAKEFLAGS)),)
 # Same as `$(shell ...)`, but triggers a error on failure.
 override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
@@ -154,7 +166,8 @@ override wget_progress_flag = $(if $(__wget_progress_flag),,$(call var,__wget_pr
 # Downloads url $1 to file $2.
 # On success expands to nothing. On failure deletes the unfinished file and expands to a non-empty string.
 # Need `1>&2` to see the progressbar in wget2. Seems to have no effect on wget1.
-override use_wget = $(filter-out 0,$(call shell_status,wget $(call quote,$1) $(if $(call boolean,WGET_ALLOW_DEFAULT_FLAGS),-c $(wget_progress_flag)) $(WGET_FLAGS) -O $(call quote,$2) 1>&2 || (rm -f $(call quote,$2) && false)))
+# Note `$(WGET_NUM_RETRIES) 10`, this caps the number of retries if `WGET_NUM_RETRIES` is not a number.
+override use_wget = $(filter-out 0,$(call shell_status,$(call repeat_n_times,$(WGET_NUM_RETRIES) 10,wget $(call quote,$1) $(if $(call boolean,WGET_ALLOW_DEFAULT_FLAGS),-c $(wget_progress_flag)) $(if $(WGET_TIMEOUT_SEC),--timeout=$(WGET_TIMEOUT_SEC)) $(WGET_FLAGS) -O $(call quote,$2) 1>&2 ||) (rm -f $(call quote,$2) && false)))
 
 # Prints $1 to stderr.
 override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))

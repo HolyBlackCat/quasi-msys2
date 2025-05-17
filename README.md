@@ -75,9 +75,9 @@ Here's how it works:
   * With Meson: `meson` as usual.
 
 * Other tools that work in `env/shell.sh`:
-  * `pkg-config` (and `pkgconf`)
-  * `win-gdb` (replaces `gdb`; which has problems with interactive input when used with Wine directly)
-  * `win-ldd` (replaces `ntldd -R`; lists the `.dll`s an executable depends on).
+  * `gdb` and `lldb` (assuming the respective MSYS2 packages are installed). If the keyboard input doesn't work, try `wineconsole gdb ...`.
+  * `pkg-config` and `pkgconf` (the native ones must be installed, don't need the MSYS2 packages).
+  * `win-ldd`, which lists the `.dll`s an executable depends on  (must install `ntldd` MSYS2 package, `win-ldd` wraps `wine ntldd -R` and convers the paths to Linux style).
   * `windres` (runs whatever Windres it can find, either the LLVM one, the native MinGW one, or the MSYS2 one through Wine)
 
 * Accessing non-cross compilers and other native tools:

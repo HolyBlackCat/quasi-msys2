@@ -23,7 +23,7 @@ __dummy_func() {
     fi
     # Also load the `MINGW_PACKAGE_PREFIX`. We don't need it for anything, since the makefile tracks the prefix independently,
     # but it's nice to have MSYS2 parity.
-    export MINGW_PACKAGE_PREFIX="$(make -pq | grep -Po '(?<=REPO_PACKAGE_COMMON_PREFIX := ).*(?=-)')"
+    export MINGW_PACKAGE_PREFIX="$(make -C "$(dirname "$BASH_SOURCE")"/.. -pq | grep -Po '(?<=REPO_PACKAGE_COMMON_PREFIX := ).*(?=-)')"
 
     # Helper variable pointing to our installation directory.
     export QUASI_MSYS2_ROOT="$(realpath "$(dirname "$BASH_SOURCE")"/..)"

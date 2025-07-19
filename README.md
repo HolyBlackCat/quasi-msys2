@@ -40,7 +40,7 @@ Here's how it works:
 
   * **Fedora:** `sudo dnf install make wget tar zstd gawk which gpg wine llvm clang lld`
 
-  * **Termux:** `sudo dnf install make wget tar zstd gawk which gnupg gpgv llvm clang lld`
+  * **Termux:** `sudo pkg install make wget tar zstd gawk which gnupg gpgv llvm clang lld`
 
     * In Termux all package manager operations below (`make install ...`) have to be peformed as `proot --link2symlink make install ...` (otherwise we can't extract package archives with hardlinks in them). The package installation will take a long time.
 
@@ -186,13 +186,13 @@ The environment can be changed using `echo ... >msystem.txt` (where `...` can be
 
 All environments should work, more or less. (Except for `MSYS`, which I'm not particulary interested in, since Cygwin doesn't seem to work with Wine. Also `CLANGARM64` wasn't tested at all.)
 
-On `CLANG64`, when using the native Clang, you must install the same native Clang version as the one used by MSYS2 (only the majro version must match).
+On `CLANG64`, when using the native Clang, you must install the same native Clang version as the one used by MSYS2 (only the major version must match).
 
 #### How to choose the environment?
 
 `UCRT64` is a good default. Use `MINGW64` if you want the old C standard library (`msvcrt.dll` instead of `ucrtbase.dll`).
 
-I don't see a good reason to use `CLANG64` (other than the ability to build with sanitizers, but the resulting executable won't run in Clang anyway), and it has a downside of locking you to a specific native Clang version.
+I don't see a good reason to use `CLANG64` (other than the ability to build with sanitizers, but the resulting executable won't run in Wine anyway), and it has a downside of locking you to a specific native Clang version.
 
 ### How do I use a different compiler?
 
@@ -244,13 +244,13 @@ We support the following compilers. By default we pick the first one that works 
 
   This will run in Wine. Fine for a hello world, but build systems tend to choke on this.
 
-  Obiously the compiler needs to be installed in quasi-msys2 for this to work.
+  Obviously the compiler needs to be installed in quasi-msys2 for this to work.
 
 * **MSYS2 GCC** (`msys2_gcc`)
 
   This will run in Wine. Fine for a hello world, but build systems tend to choke on this.
 
-  Obiously the compiler needs to be installed in quasi-msys2 for this to work.
+  Obviously the compiler needs to be installed in quasi-msys2 for this to work.
 
   This is not available in the `CLANG64` environment.
 

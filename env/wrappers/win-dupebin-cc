@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # See `env/duplicate_exe_outputs.src` for explanation.
 

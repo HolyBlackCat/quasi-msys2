@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ -v WIN_NATIVE_WINDRES ]]; then
 exec "$WIN_NATIVE_WINDRES" "--include=$MSYSTEM_PREFIX/include" "$@"

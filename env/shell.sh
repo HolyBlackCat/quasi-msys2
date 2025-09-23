@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Opens a new Bash shell and runs `source env/all.src` in it.
 

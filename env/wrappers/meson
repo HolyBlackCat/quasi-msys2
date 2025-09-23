@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # For the `x` prefix on strings, see https://unix.stackexchange.com/questions/490393/whats-the-purpose-of-adding-a-prefix-on-both-sides-of-a-shell-variable-comparis
 if [ "x$1" = "xsetup" ]; then

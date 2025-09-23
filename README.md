@@ -1,6 +1,8 @@
 ## quasi-msys2
 
-A Linux-to-Windows cross-compilation environment. Imitates [MSYS2](https://www.msys2.org/) (which is Windows-only) on Linux.
+A Linux-to-Windows cross-compilation environment. Imitates [MSYS2](https://www.msys2.org/) (which is Windows-only) on other platforms.
+
+Can also be made to run on MacOS, Termux, FreeBSD with some tinkering, see below.
 
 Features:
 
@@ -40,11 +42,51 @@ Here's how it works:
 
   * **Fedora:** `sudo dnf install make wget tar zstd gawk which gpg wine llvm clang lld`
 
-  * **Termux:** `sudo pkg install make wget tar zstd gawk which gnupg gpgv llvm clang lld`
+  * <details><summary><b>MacOS</b></summary>
+
+    I didn't test on MacOS, but all necessary utilities should be available in `brew`.
+
+    If you run quasi-msys2 on Mac successfully, please report your process!
+
+    * There's no binfmt, so you'll have to live without it.
+
+    </details>
+
+  * <details><summary><b>Termux</b></summary>
+
+    Run `sudo pkg install make wget tar zstd gawk which gnupg gpgv llvm clang lld`
 
     * In Termux all package manager operations below (`make install ...`) have to be peformed as `proot --link2symlink make install ...` (otherwise we can't extract package archives with hardlinks in them). The package installation will take a long time.
 
-  * (similarly for other distros)
+    * There's no Wine in the default Termux packages, but Wine isn't strictly required.
+
+    </details>
+
+  * <details><summary><b>FreeBSD</b></summary>
+
+    I didn't test on FreeBSD myself, but I'm told the following works.
+
+    Run `pkg install gnugrep gmake coreutils gsed wget gnupg bash sudo`
+
+    * Also install LLVM via `pkg install llvm20` (replace the version number with the newest available).
+
+    * GNU utilities (and Wine, apparently) are named differently on FreeBSD, so you'll have to add aliases for them to your PATH:
+
+      ```sh
+      mkdir gnu_overrides
+      ln -s /usr/local/bin/ggrep     gnu_overrides/grep
+      ln -s /usr/local/bin/gmake     gnu_overrides/make
+      ln -s /usr/local/bin/gsed      gnu_overrides/sed
+      ln -s /usr/local/bin/greadlink gnu_overrides/readlink
+      ln -s /usr/local/bin/wine64    gnu_overrides/wine
+      export PATH="$(pwd)/gnu_overrides:$PATH"
+      ```
+
+    * There's no binfmt, so you'll have to live without it.
+
+    </details>
+
+  * (similarly for other distros/platforms)
 
   Wine is optional but recommended. `make --version` must be 4.3 or newer. Clang is the recommended compiler choice, but if you [use something else](#how-do-i-use-a-different-compiler), you don't have to install it.
 

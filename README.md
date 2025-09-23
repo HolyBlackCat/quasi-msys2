@@ -216,7 +216,7 @@ We support the following compilers. By default we pick the first one that works 
 
   * You can set `WIN_NATIVE_CLANG_FLAGS` to customize what flags are passed to your native Clang. We print the guessed flags when initializing `env/shell.sh`.
 
-  * You can set `WIN_NATIVE_CLANG_VER` to a single number (e.g. `19`) if your native Clang is suffixed with a version (e.g. `clang++-19`), or `NONE` if not suffixed (just `clang++`). We try to guess this number. You can also specify custom native Clang binaries with `WIN_NATIVE_CLANG_{CC,CXX,LD}`.
+  * You can set `WIN_NATIVE_CLANG_VER` to a version suffix (e.g. `-19`) if your native Clang is suffixed with a version (e.g. `clang++-19`), or an empty string if not suffixed (just `clang++`). We try to guess this number. You can also specify custom native Clang binaries with `WIN_NATIVE_CLANG_{CC,CXX,LD}`.
 
 * **Native MinGW GCC** (`native_gcc`)
 

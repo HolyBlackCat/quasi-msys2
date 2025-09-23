@@ -52,13 +52,12 @@ __dummy_func() {
     # -------- Testing native Clang
     echo '* Native Clang'
     # First guess the version suffix, if the custom binaries weren't specified.
-    local clang_ver_suffix=
     local clang_is_broken=
     if [[ -v WIN_NATIVE_CLANG_CC ]]; then
         echo "    Custom binaries were specified."
     else
         if [[ -v WIN_NATIVE_CLANG_VER ]]; then
-            echo "    Using user-provided version suffix: WIN_NATIVE_CLANG_VER = $WIN_NATIVE_CLANG_VER"
+            echo "    Using user-provided version suffix: WIN_NATIVE_CLANG_VER = ${WIN_NATIVE_CLANG_VER:-\"\"}"
         else
             if [[ $MSYSTEM == CLANG* ]]; then
                 # In CLANG64 environment, since the native clang version must match the msys2 one exactly,
@@ -66,24 +65,20 @@ __dummy_func() {
                 export WIN_NATIVE_CLANG_VER="$(basename "$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit 2>/dev/null)" | sed 's/\..*//')"
             fi
             # Otherwise use the biggest number we see.
-            [[ $WIN_NATIVE_CLANG_VER ]] || export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort | tail -1 | sed 's/clang-//')"
-            # If we found no suffix OR the executable doesn't exist for some reason, set the suffix to NONE.
-            ( test -z "$WIN_NATIVE_CLANG_VER" || ! which "clang-$WIN_NATIVE_CLANG_VER" "clang++-$WIN_NATIVE_CLANG_VER" "lld-$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_NATIVE_CLANG_VER=NONE"
-            echo "    Guessed Clang version suffix: WIN_NATIVE_CLANG_VER = $WIN_NATIVE_CLANG_VER"
-            echo "    You can override it by setting it to a number or to \`NONE\` for no suffix."
+            # Note that here we go out of our way to support both `clang-N` and `clangN`. The latter is what FreeBSD uses, I haven't seen it anywhere else.
+            # `sort -Vd` is used to sort both `-N` and `N` as if by their absolute value. See here: https://stackoverflow.com/a/41432692/2752075
+            [[ $WIN_NATIVE_CLANG_VER ]] || export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort -Vd | tail -1 | sed 's/clang-//')"
+            # If we found no suffix OR the executable doesn't exist for some reason, make the suffix empty.
+            ( [[ ! $WIN_NATIVE_CLANG_VER ]] || ! which "clang-$WIN_NATIVE_CLANG_VER" "clang++-$WIN_NATIVE_CLANG_VER" "lld-$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_NATIVE_CLANG_VER="
+            echo "    Guessed Clang version suffix: WIN_NATIVE_CLANG_VER = ${WIN_NATIVE_CLANG_VER:-\"\"}"
         fi
 
-        if test "$WIN_NATIVE_CLANG_VER" = "NONE"; then
-            local clang_ver_suffix=""
-        else
-            local clang_ver_suffix="-$WIN_NATIVE_CLANG_VER"
-        fi
         # Those variables are used by our Clang wrapper in `env/wrappers`.
-        export "WIN_NATIVE_CLANG_CC=clang$clang_ver_suffix"
-        export "WIN_NATIVE_CLANG_CXX=clang++$clang_ver_suffix"
-        export "WIN_NATIVE_CLANG_LD=ld.lld$clang_ver_suffix"
-        export "WIN_NATIVE_CLANG_USE_LD=lld$clang_ver_suffix"
-        export "WIN_NATIVE_CLANG_WINDRES=llvm-windres$clang_ver_suffix"
+        export "WIN_NATIVE_CLANG_CC=clang$WIN_NATIVE_CLANG_VER"
+        export "WIN_NATIVE_CLANG_CXX=clang++$WIN_NATIVE_CLANG_VER"
+        export "WIN_NATIVE_CLANG_LD=ld.lld$WIN_NATIVE_CLANG_VER"
+        export "WIN_NATIVE_CLANG_USE_LD=lld$WIN_NATIVE_CLANG_VER"
+        export "WIN_NATIVE_CLANG_WINDRES=llvm-windres$WIN_NATIVE_CLANG_VER"
     fi
     if which "$WIN_NATIVE_CLANG_CC" >/dev/null 2>/dev/null; then # Only checking the C compiler. C++ support is optional.
         if ! which "$WIN_NATIVE_CLANG_CXX" >/dev/null 2>/dev/null; then

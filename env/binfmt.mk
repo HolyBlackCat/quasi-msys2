@@ -82,8 +82,6 @@ enable:
 	$(call confirm)
 	$(if $(filter-out 0,$(call shell_status,which wine)),\
 		$(info Wine is not installed!)\
-		$(info A native Clang can cross-compile without it, but nothing else will function.)\
-		$(info If that's ok, skip this configuration script and run the remaining ones.)\
 		$(error Aborted)\
 	)
 	$(call reset_sudo)

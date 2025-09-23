@@ -62,14 +62,18 @@ __dummy_func() {
             if [[ $MSYSTEM == CLANG* ]]; then
                 # In CLANG64 environment, since the native clang version must match the msys2 one exactly,
                 # try to guess the native version number from the msys2 version
-                export WIN_NATIVE_CLANG_VER="$(basename "$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit 2>/dev/null)" | sed 's/\..*//')"
+                export WIN_NATIVE_CLANG_VER="-$(basename "$(find "$MSYSTEM_PREFIX/lib/clang" -maxdepth 1 -mindepth 1 -print -quit 2>/dev/null)" | sed 's/\..*//')"
+
+                # If can't find `clang-N`, also try `clangN`, FreeBSD-style.
+                which "clang$WIN_NATIVE_CLANG_VER" "clang++$WIN_NATIVE_CLANG_VER" "lld$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null || export "WIN_NATIVE_CLANG_VER=${WIN_NATIVE_CLANG_VER#-}"
             fi
-            # Otherwise use the biggest number we see.
+            # If not in CLANG64 env (or their Clang isn't installed), use the biggest suffix number we see.
+            # The suffixed versions get precedence over unsuffixed ones right now, but we could one day actually compare what `--version` prints.
             # Note that here we go out of our way to support both `clang-N` and `clangN`. The latter is what FreeBSD uses, I haven't seen it anywhere else.
             # `sort -Vd` is used to sort both `-N` and `N` as if by their absolute value. See here: https://stackoverflow.com/a/41432692/2752075
-            [[ $WIN_NATIVE_CLANG_VER ]] || export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort -Vd | tail -1 | sed 's/clang-//')"
+            [[ $WIN_NATIVE_CLANG_VER ]] || export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sort -Vd | tail -1 | sed 's/^clang//')"
             # If we found no suffix OR the executable doesn't exist for some reason, make the suffix empty.
-            ( [[ ! $WIN_NATIVE_CLANG_VER ]] || ! which "clang-$WIN_NATIVE_CLANG_VER" "clang++-$WIN_NATIVE_CLANG_VER" "lld-$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_NATIVE_CLANG_VER="
+            ( [[ ! $WIN_NATIVE_CLANG_VER ]] || ! which "clang$WIN_NATIVE_CLANG_VER" "clang++$WIN_NATIVE_CLANG_VER" "lld$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_NATIVE_CLANG_VER="
             echo "    Guessed Clang version suffix: WIN_NATIVE_CLANG_VER = ${WIN_NATIVE_CLANG_VER:-\"\"}"
         fi
 
@@ -163,13 +167,13 @@ __dummy_func() {
         fi
     else
         # Couldn't find a native Clang.
+        echo "    NOT found! No executable named \`$WIN_NATIVE_CLANG_CC\`."
         unset WIN_NATIVE_CLANG_CC
         unset WIN_NATIVE_CLANG_CXX
         unset WIN_NATIVE_CLANG_LD
         unset WIN_NATIVE_CLANG_USE_LD
         unset WIN_NATIVE_CLANG_FLAGS
         unset WIN_NATIVE_CLANG_WINDRES
-        echo "    NOT found! No executable named \`$WIN_NATIVE_CLANG_CC\`."
     fi
     # -------- Testing native GCC
     if [[ $MSYSTEM != CLANG* ]]; then
@@ -303,13 +307,12 @@ __dummy_func() {
 
 
     # Now select one of the installed compilers.
-    # Back up the existing ones.
-    local suggested_cc=/usr/bin/cc
-    local suggested_cxx=/usr/bin/c++
-    local suggested_ld=/usr/bin/ld
-    local suggested_cc_check="$suggested_cc"
-    local suggested_cxx_check="$suggested_cxx"
-    local suggested_ld_check="$suggested_ld"
+    local suggested_cc=
+    local suggested_cxx=
+    local suggested_ld=
+    local suggested_cc_check=
+    local suggested_cxx_check=
+    local suggested_ld_check=
     local suggested_compiler_broken=
     # TODO do we need to set LD too?
     local suggested_host_cc="${CC-/usr/bin/cc}"

@@ -11,17 +11,17 @@ __dummy_func() {
     # Make sure the resulting variable is not empty due to some error. If it is, abort.
     test -z "$env_path" && return 1
 
-    echo -e '\n--- binfmt.mk'
+    echo -e '\n--- Setting up binfmt to transparently run Windows executables (env/binfmt.mk)'
     # The `(...)` and `trap exit 2` sorcery is to handle Ctrl+C correctly. Not sure why it doesn't work otherwise.
     (cd "$env_path" && bash -c "trap exit 2 && make -f binfmt.mk QUIET=1")
 
-    echo -e '\n--- fakebin.mk'
+    echo -e '\n--- Generating wrapper scripts to run MSYS2 executables in Wine (env/fakebin.mk)'
     make -f "$env_path/fakebin.mk" QUIET=1 || return 1
 
     # This should probably go after `fakebin.mk`, because whether or not we install
     # package manager hooks (that call `fakebin.mk`) depends on whether we have the `fake_bin` directory.
     local QUASI_MSYS2_QUIET=1
-    echo -e '\n--- vars.src'
+    echo -e '\n--- Setting env variables (env/vars.src)'
     source "$env_path/vars.src" || return 1
 
     # Update the cross-file for Meson.

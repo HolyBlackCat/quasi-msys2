@@ -82,7 +82,7 @@ override removed_list := $(filter-out $(wanted_list),$(current_list))
 .PHONY: update
 update:
 	$(call safe_shell_exec,mkdir -p '$(DIR)')
-	$(foreach x,$(added_list),$(file >$(DIR)/$x,#!/bin/sh$(lf)wine $x "$$@")$(call safe_shell_exec,chmod +x '$(DIR)/$x'))
+	$(foreach x,$(added_list),$(file >$(DIR)/$x,#!/bin/sh$(lf)exec wine $x "$$@")$(call safe_shell_exec,chmod +x '$(DIR)/$x'))
 	$(foreach x,$(removed_list),$(call safe_shell_exec,rm -f '$(DIR)/$x'))
 	$(if $(added_list)$(removed_list),\
 		$(info Added $(words $(added_list)) wrappers, removed $(words $(removed_list)) wrappers.)\

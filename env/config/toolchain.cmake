@@ -1,7 +1,7 @@
 # This file contains CMake configuration.
 
 set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_CROSSCOMPILING FALSE)
+set(CMAKE_CROSSCOMPILING_EMULATOR wine)
 
 # Note! Appending instead of overwriting, to allow the user to specify extra custom paths.
 # Because `CMAKE_FIND_ROOT_PATH` is really the only variable that lets us do it sanely.

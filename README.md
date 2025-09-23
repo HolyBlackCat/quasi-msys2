@@ -70,16 +70,17 @@ Here's how it works:
 
     * Also install LLVM via `pkg install llvm20` (replace the version number with the newest available).
 
-    * GNU utilities (and Wine, apparently) are named differently on FreeBSD, so you'll have to add aliases for them to your PATH:
+    * Some utilities (mostly GNU ones) are named differently on FreeBSD, so you'll have to add aliases for them to your PATH:
 
       ```sh
-      mkdir gnu_overrides
-      ln -s /usr/local/bin/ggrep     gnu_overrides/grep
-      ln -s /usr/local/bin/gmake     gnu_overrides/make
-      ln -s /usr/local/bin/gsed      gnu_overrides/sed
-      ln -s /usr/local/bin/greadlink gnu_overrides/readlink
-      ln -s /usr/local/bin/wine64    gnu_overrides/wine
-      export PATH="$(pwd)/gnu_overrides:$PATH"
+      mkdir helper_aliases
+      ln -s /usr/local/bin/ggrep     helper_aliases/grep
+      ln -s /usr/local/bin/gmake     helper_aliases/make
+      ln -s /usr/local/bin/gsed      helper_aliases/sed
+      ln -s /usr/local/bin/greadlink helper_aliases/readlink
+      ln -s /usr/local/bin/wine64    helper_aliases/wine
+      ln -s /usr/local/bin/gpgv2     helper_aliases/gpgv
+      export PATH="$(pwd)/helper_aliases:$PATH"
       ```
 
     * There's no binfmt, so you'll have to live without it.

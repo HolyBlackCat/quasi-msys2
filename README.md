@@ -66,7 +66,7 @@ Here's how it works:
 
     I didn't test on FreeBSD myself, but I'm told the following works.
 
-    Run `pkg install gnugrep gmake coreutils gsed wget gnupg bash sudo`
+    Run `pkg install gnugrep gmake coreutils gsed wget gnupg bash sudo gawk`
 
     * Also install LLVM via `pkg install llvm20` (replace the version number with the newest available).
 

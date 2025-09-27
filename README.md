@@ -289,6 +289,8 @@ We support the following compilers. By default we pick the first one that works 
 
   Obviously the compiler needs to be installed in quasi-msys2 for this to work.
 
+  In addition to `_clang` it's recommended to install `_llvm-tools` for various little tools, like `_llvm-ar`.
+
 * **MSYS2 GCC** (`msys2_gcc`)
 
   This will run in Wine. Fine for a hello world, but build systems tend to choke on this.

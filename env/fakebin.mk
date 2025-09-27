@@ -5,10 +5,13 @@
 # A space-separated list of programs that must not have fakebin wrappers.
 # Most are blacklisted because native equivalents work equally well.
 # `pkg-config` and `pkgconf` are blacklisted because they output WINE-style paths. And also because they now seem to choke on Linux-style env variables?
-# `cmake` doesn't seem to work correctly, but it doesn't matter, because we configure the native one with shell variables.
+# `cmake` doesn't seem to work correctly, but it doesn't matter, because we configure the native one to do the right thing.
+# `ar` and `ranlib` are in a weird place, because the native ones usually work, but technically they need the LTO plugins
+#   to work when the compiler has LTO enabled, so for safety we should be using the native `ar` only.
+#   Not 100% sure about ranlib, but since it's related, doing the same thing for it for consistency.
 # For some libs it helps blacklisting `python% pydoc%` (because the native ones are faster) (the latter just for consistency),
 #   but for others (most?) it interferes with CMake finding python, so not doing it by default.
-QUASI_MSYS2_FAKEBIN_BLACKLIST_DEFAULT ?= ar cmake ld ld.bfd objdump pkg-config pkgconf strip meson ninja
+QUASI_MSYS2_FAKEBIN_BLACKLIST_DEFAULT ?= cmake ld ld.bfd objdump pkg-config pkgconf strip meson ninja
 # This is appended to the variable above.
 QUASI_MSYS2_FAKEBIN_BLACKLIST ?=
 # Then this is subtracted from the result.

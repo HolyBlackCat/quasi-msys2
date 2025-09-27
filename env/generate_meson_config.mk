@@ -22,13 +22,13 @@ override define contents :=
 $(if $(shell which wine >/dev/null 2>/dev/null)$(filter 0,$(.SHELLSTATUS)),exe_wrapper = 'wine',# exe_wrapper = ??)
 # Meson refuses to use those unless we explicitly tell it to. Something else might be missing.
 pkg-config = 'pkg-config'
-strip = 'strip'
-# Unsure about those, copied them from https://github.com/mesonbuild/meson/blob/master/cross/linux-mingw-w64-64bit.txt
-ar = 'ar'
-windres = 'windres'
 cmake = 'cmake'
+strip = 'strip'
+windres = 'windres'
+$(if $(AR),ar = '$(AR)',# ar = ??)
+$(if $(RANLIB),ranlib = '$(RANLIB)',# ranlib = ??)
 
-[host_machine]# Maybe we should
+[host_machine]
 system = 'windows'
 # I guess?
 cpu_family = '$(if $(is32bit),x86,x86_64)'
@@ -52,12 +52,13 @@ $(if $(WIN_HOST_CC),c = '$(WIN_HOST_CC)',# c = ??)
 $(if $(WIN_HOST_CXX),cpp = '$(WIN_HOST_CXX)',# cpp = ??)
 $(if $(WIN_HOST_LD),c_ld = '$(WIN_HOST_LD)',# c_ld = ??)
 $(if $(WIN_HOST_LD),cpp_ld = '$(WIN_HOST_LD)',# cpp_ld = ??)
+$(if $(WIN_HOST_AR),ar = '$(WIN_HOST_AR)',# ar = ??)
+$(if $(WIN_HOST_RANLIB),ranlib = '$(WIN_HOST_RANLIB)',# ranlib = ??)
 # This one is important. We need a wrapper that unsets our environment variables.
 pkg-config = 'win-native-pkg-config'
 # The unmodified cmake.
 cmake = '$(WIN_NATIVE_CMAKE)'
 # For completeness.
-ar = 'ar'
 strip = 'strip'
 endef
 

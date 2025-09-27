@@ -1,0 +1,3 @@
+#!/bin/sh
+set -u
+exec "$WIN_NATIVE_GCC_AR" "$@"

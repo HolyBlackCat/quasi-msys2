@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # We pipe the output of `ntldd` through `winepath -u` to replace any windows-style paths with linux-style ones.
 # Most of thise is self-explanatory. We apply `realpath` to the result, because there are weird symlinks in `~/.wine`

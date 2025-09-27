@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 test -z "$WIN_ORIGINAL_PATH" && exit 1
 exec env -C "$QUASI_MSYS2_ROOT" -uQUASI_MSYS2_ROOT -uWIN_ORIGINAL_PATH "PATH=$WIN_ORIGINAL_PATH" make CALL_ON_PKG_CHANGE="$QUASI_MSYS2_PKG_HOOK" "$@"

@@ -82,7 +82,9 @@ __dummy_func() {
         export "WIN_NATIVE_CLANG_CC=clang$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_CXX=clang++$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_LD=ld.lld$WIN_NATIVE_CLANG_VER"
-        export "WIN_NATIVE_CLANG_USE_LD=lld$WIN_NATIVE_CLANG_VER"
+        # I could swear the version suffix was needed here at some point, but currently Clang seems to add it on its own.
+        # Adding it manually breaks LTO, which seems to be a bug: https://github.com/llvm/llvm-project/issues/161040
+        export "WIN_NATIVE_CLANG_USE_LD=lld"
         export "WIN_NATIVE_CLANG_WINDRES=llvm-windres$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_AR=llvm-ar$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_RANLIB=llvm-ranlib$WIN_NATIVE_CLANG_VER"

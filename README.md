@@ -221,6 +221,8 @@ If you want to run commands non-interactively (as in from shell scripts), do thi
 bash -c 'source env/all.src && my_command'
 ```
 
+It's recommended that you do this once to run your entire build script, as opposed to wrapping every compiler invocation with this.
+
 If you don't want certain components of the environment, you can study `all.src` and run desired components manually. (E.g. if you don't want `binfmt_misc`.)
 
 ### How do I use different [MSYS2 environments](https://www.msys2.org/docs/environments/)?
@@ -331,6 +333,23 @@ You can try the native LD using `-fuse-ld=ld`.
 ### My build system is confused because the compiled C/C++ binaries are suffixed with `.exe`.
 
 Use `source env/duplicate_exe_outputs.src`. Then `$CC` and `$CXX` will output two identical binaries, `foo.exe` and `foo`. The lack of the extension doesn't stop them from being transparently invoked with Wine.
+
+### LTO troubles
+
+If you see this:
+```console
+ld.lld: error: undefined symbol: std::__once_callable
+>>> referenced by 1.cpp
+>>>               /tmp/3-c926bc.o
+
+ld.lld: error: undefined symbol: std::__once_call
+>>> referenced by 1.cpp
+>>>               /tmp/3-c926bc.o
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+```
+Or undefined references to `thread_local` variables when enabling `-flto`, this is a Clang bug: https://github.com/llvm/llvm-project/issues/161039
+
+Known workarounds are: not using LTO; or using libc++ (`make install _libc++`, then `-stdlib=libc++`) (`thread_local` in shared libraries is still bugged there, it's just that libc++ doesn't rely one for its `std::once_flag`); or perhaps patching libstdc++ yourself to work around this (perhaps function-local `thread_local` variables would work; if you make this work, send me a patch).
 
 
 ## Installation structure

@@ -72,7 +72,7 @@ __dummy_func() {
             # Note that here we go out of our way to support both `clang-N` and `clangN`. The latter is what FreeBSD uses, I haven't seen it anywhere else.
             # This hackery is used to sort both `-N` and `N` as if by their absolute value. An easier alternative to this is `sort -Vd`, but that's apparently not portable (see https://stackoverflow.com/a/41432692/2752075),
             #   and the whole reason I'm supporting `clangN` is because of FreeBSD. From the first glance they don't have a way to install GNU sort.
-            [[ $WIN_NATIVE_CLANG_VER ]] || export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-[0-9]+$' | sed 's/clang-*\(.*\)/0\1 \0/' | sort -n | cut -d' ' -f2 | tail -1 | sed 's/^clang//')"
+            [[ $WIN_NATIVE_CLANG_VER ]] || export "WIN_NATIVE_CLANG_VER=$(compgen -c clang | grep -E '^clang-?[0-9]+$' | sed 's/clang-*\(.*\)/0\1 \0/' | sort -n | cut -d' ' -f2 | tail -1 | sed 's/^clang//')"
             # If we found no suffix OR the executable doesn't exist for some reason, make the suffix empty.
             ( [[ ! $WIN_NATIVE_CLANG_VER ]] || ! which "clang$WIN_NATIVE_CLANG_VER" "clang++$WIN_NATIVE_CLANG_VER" "lld$WIN_NATIVE_CLANG_VER" >/dev/null 2>/dev/null ) && export "WIN_NATIVE_CLANG_VER="
             echo "    Guessed Clang version suffix: WIN_NATIVE_CLANG_VER = ${WIN_NATIVE_CLANG_VER:-\"\"}"

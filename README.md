@@ -114,8 +114,8 @@ Here's how it works:
     ```
     You can also use `g++` and `clang++` to run the respective MSYS2 compilers in Wine, assuming you installed `_gcc` and `_clang` respectively.
   * With Autotools: `./configure && make` as usual, no extra configuration is needed.
-  * With CMake: `cmake` as usual.
-  * With Meson: `meson` as usual.
+  * With CMake: `cmake` as usual. (Must be installed natively outside of quasi-msys2.)
+  * With Meson: `meson` as usual. (Must be installed natively outside of quasi-msys2.)
 
 * Other tools that work in `env/shell.sh`:
   * `gdb` and `lldb` (assuming the respective MSYS2 packages are installed). If the keyboard input doesn't work, try `wineconsole gdb ...`.

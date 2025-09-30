@@ -114,7 +114,7 @@ Here's how it works:
     ```
     You can also use `g++` and `clang++` to run the respective MSYS2 compilers in Wine, assuming you installed `_gcc` and `_clang` respectively.
   * With Autotools: `./configure && make` as usual, no extra configuration is needed.
-  * With CMake: `cmake` as usual.
+  * With CMake: Install `cmake` on the host system, afterwards `cmake` can be used as usual.
   * With Meson: `meson` as usual.
 
 * Other tools that work in `env/shell.sh`:

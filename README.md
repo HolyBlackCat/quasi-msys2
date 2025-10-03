@@ -36,8 +36,6 @@ Here's how it works:
 
   * **Arch:** `sudo pacman -S --needed make wget tar zstd gawk gnupg wine llvm clang lld`
 
-    * To install Wine, you need to [enable the `multilib` repository](https://wiki.archlinux.org/title/official_repositories#Enabling_multilib) first.
-
     * Clang in the repos is usually outdated by one major version. If you don't like that, build from source or use AUR.
 
   * **Fedora:** `sudo dnf install make wget tar zstd gawk which gpg wine llvm clang lld`

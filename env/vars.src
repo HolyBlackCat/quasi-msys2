@@ -191,6 +191,24 @@ __dummy_func() {
     # -------- Testing native GCC
     if [[ $MSYSTEM != CLANG* ]]; then
         echo '* Native MinGW GCC'
+
+        # Determine the triple name that the native mingw gcc uses. It usually matches `MSYSTEM_CHOST`,
+        #   but UCRT64-like distributions seem to additionally append `ucrt` at the end to not conflict with MINGW64-like.
+        if [[ $WIN_NATIVE_GCC_CHOST ]]; then
+            echo "    WIN_NATIVE_GCC_CHOST   = $WIN_NATIVE_GCC_CHOST (overridden by user)"
+        else
+            if [[ $MSYSTEM == UCRT64 ]]; then
+                export WIN_NATIVE_GCC_CHOST=x86_64-w64-mingw32ucrt
+            elif [[ $MSYSTEM == MINGW64 ]]; then
+                export WIN_NATIVE_GCC_CHOST=x86_64-w64-mingw32
+            elif [[ $MSYSTEM == MINGW32 ]]; then
+                export WIN_NATIVE_GCC_CHOST=i686-w64-mingw32
+            else
+                echo "    $warn""Internal error: Unknown MSYSTEM."
+            fi
+            echo "    WIN_NATIVE_GCC_CHOST   = $WIN_NATIVE_GCC_CHOST"
+        fi
+
         if [[ -v WIN_NATIVE_GCC_CC ]]; then # Only checking the C compiler. C++ support is optional.
             echo "    Custom binaries were specified."
         else
@@ -198,24 +216,19 @@ __dummy_func() {
             unset WIN_NATIVE_GCC_CXX
             unset WIN_NATIVE_GCC_LD
             unset WIN_NATIVE_GCC_WINDRES
+            unset WIN_NATIVE_GCC_AR
+            unset WIN_NATIVE_GCC_RANLIB
 
             # Absolute paths everywhere to not conflict with MSYS2 GCC.
-            if [[ $MSYSTEM == UCRT64 ]]; then
-                local native_gcc_prefix=/usr/bin/x86_64-w64-mingw32ucrt-
-            elif [[ $MSYSTEM == MINGW64 ]]; then
-                local native_gcc_prefix=/usr/bin/x86_64-w64-mingw32-
-            elif [[ $MSYSTEM == MINGW32 ]]; then
-                local native_gcc_prefix=/usr/bin/i686-w64-mingw32-
-            else
-                echo "    $warn""Internal error: Unknown MSYSTEM."
-            fi
-            export WIN_NATIVE_GCC_CC="${native_gcc_prefix}gcc"
-            export WIN_NATIVE_GCC_CXX="${native_gcc_prefix}g++"
-            export WIN_NATIVE_GCC_LD="${native_gcc_prefix}ld"
-            export WIN_NATIVE_GCC_WINDRES="${native_gcc_prefix}windres"
+            local native_gcc_bin_prefix="/usr/bin/$WIN_NATIVE_GCC_CHOST-"
+
+            export WIN_NATIVE_GCC_CC="${native_gcc_bin_prefix}gcc"
+            export WIN_NATIVE_GCC_CXX="${native_gcc_bin_prefix}g++"
+            export WIN_NATIVE_GCC_LD="${native_gcc_bin_prefix}ld"
+            export WIN_NATIVE_GCC_WINDRES="${native_gcc_bin_prefix}windres"
             # The host `ar` and `ranlib` seem to work equally well, but why not use MinGW ones if they are available, I guess?
-            export WIN_NATIVE_GCC_AR="${native_gcc_prefix}ar"
-            export WIN_NATIVE_GCC_RANLIB="${native_gcc_prefix}ranlib"
+            export WIN_NATIVE_GCC_AR="${native_gcc_bin_prefix}ar"
+            export WIN_NATIVE_GCC_RANLIB="${native_gcc_bin_prefix}ranlib"
 
             if [[ $WIN_NATIVE_GCC_CC ]]; then
                 # Not updating `windres` and `ld`` here! They don't seem to be suffixed with the thread model.
@@ -257,8 +270,9 @@ __dummy_func() {
                     echo "    MSYS2 GCC is installed, will use the standard library from it. If you get any issues (specifically with native MinGW GCC, not Clang), uninstall MSYS2 GCC, then we will use the standard library that comes with the native MinGW GCC."
 
                     local msys2_gcc_ver="$(basename "$msys2_gcc_res_dir")"
-                    if [[ ! -d /usr/lib/gcc/i686-w64-mingw32/$msys2_gcc_ver ]]; then
+                    if [[ ! -d "/usr/lib/gcc/$WIN_NATIVE_GCC_CHOST/$msys2_gcc_ver" ]]; then
                         # I'm not sure if this needs to be a hard error. I know the version mismatch is an issue for Clang, but what about GCC?
+                        # It's SOMETIMES an issue for GCC, but I don't know the exact conditions.
                         # Not using the MSYS2 resource dir isn't an option if MSYS2 GCC is installed (see above), so whatever?
                         echo "    $warn""Native MinGW GCC version doesn't match the version installed in MSYS2. This can cause issues. Consider uninstalling MSYS2 GCC completely."
                     fi
@@ -285,6 +299,7 @@ __dummy_func() {
         else
             # Couldn't find a native GCC.
             echo "    NOT found! No executable named \`$WIN_NATIVE_GCC_CC\`."
+            unset WIN_NATIVE_GCC_CHOST
             unset WIN_NATIVE_GCC_CC
             unset WIN_NATIVE_GCC_CXX
             unset WIN_NATIVE_GCC_LD

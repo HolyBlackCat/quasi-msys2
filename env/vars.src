@@ -270,6 +270,7 @@ __dummy_func() {
                     echo "    MSYS2 GCC is installed, will use the standard library from it. If you get any issues (specifically with native MinGW GCC, not Clang), uninstall MSYS2 GCC, then we will use the standard library that comes with the native MinGW GCC."
 
                     local msys2_gcc_ver="$(basename "$msys2_gcc_res_dir")"
+                    # This check works even on Fedora with their weird MinGW installation structure.
                     if [[ ! -d "/usr/lib/gcc/$WIN_NATIVE_GCC_CHOST/$msys2_gcc_ver" ]]; then
                         # I'm not sure if this needs to be a hard error. I know the version mismatch is an issue for Clang, but what about GCC?
                         # It's SOMETIMES an issue for GCC, but I don't know the exact conditions.
@@ -279,6 +280,11 @@ __dummy_func() {
 
                     # For some reason `--sysroot` has some other meaning for GCC than for Clang. It doesn't affect the library and include paths.
                     # So instead we remove the stock ones using `-nostdinc` and specify them manually.
+                    # To be honest, I don't remember how to reproduce errors from this missing, but a simple way to check how this affects behavior
+                    #   is to try to include `stdio.h` and observe using `-H` that it comes from MSYS2 rather than your native MinGW installation,
+                    #   as long as `-isystem$MSYSTEM_PREFIX/include` is present, and our fixes are not present (before it).
+                    # All this seems to work regardless of `-I` vs `-isystem`, so the latter is probably better. It also takes precedence over user-specified `-I`
+                    #   for the same directories, as documented by GCC (so the user can't search those headers earlier by passing them to `-I`).
                     export WIN_NATIVE_GCC_FLAGS="-nostdinc"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver/$MSYSTEM_CHOST"
@@ -286,11 +292,35 @@ __dummy_func() {
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/lib/gcc/$MSYSTEM_CHOST/$msys2_gcc_ver/include"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/lib/gcc/$MSYSTEM_CHOST/$msys2_gcc_ver/include-fixed"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include"
+
+                    # Here we don't add the native mingw library directory, and let it be overridden by `$MSYSTEM_PREFIX/lib`.
+                    # This is known to cause problems on certain mingw version mismatches, but I assume better this than having mismatched headers and libraries? Not sure.
+                    export WIN_NATIVE_GCC_FLAGS+=" -L$MSYSTEM_PREFIX/lib"
                 else
                     echo "    MSYS2 GCC is not installed. Will use the standard library from the system MinGW GCC. This is not an error, and is usually a good idea if you're planning to use the native MinGW GCC."
+
                     export WIN_NATIVE_GCC_FLAGS="-isystem$MSYSTEM_PREFIX/include"
+
+                    # Prepend the native mingw library directory, because the native mingw gcc might not be compatible with certain basic runtime libraries from MSYS2.
+                    # The directory depends on the distro, so we make it customizable.
+                    # This must before `-L$MSYSTEM_PREFIX/lib` to have priority over it.
+                    if [[ -v WIN_NATIVE_GCC_LIB_DIR ]]; then
+                        echo "    WIN_NATIVE_GCC_LIB_DIR = $WIN_NATIVE_GCC_LIB_DIR (overridden by the user)"
+                    elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw/lib" ]]; then
+                        # Fedora style.
+                        export "WIN_NATIVE_GCC_LIB_DIR=/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw/lib"
+                    elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST/lib" ]]; then
+                        # Arch and Ubuntu.
+                        export "WIN_NATIVE_GCC_LIB_DIR=/usr/$WIN_NATIVE_GCC_CHOST/lib"
+                    else
+                        echo "    $warn""Unable to determine the library directory used by your native MinGW GCC. This can cause issues. Please report this. You can override this directory by setting \`WIN_NATIVE_GCC_LIB_DIR\`."
+                    fi
+                    if [[ $WIN_NATIVE_GCC_LIB_DIR ]]; then
+                        export WIN_NATIVE_GCC_FLAGS+=" -L$WIN_NATIVE_GCC_LIB_DIR"
+                    fi
+
+                    export WIN_NATIVE_GCC_FLAGS+=" -L$MSYSTEM_PREFIX/lib"
                 fi
-                export WIN_NATIVE_GCC_FLAGS+=" -L$MSYSTEM_PREFIX/lib"
             fi
             echo "    WIN_NATIVE_GCC_FLAGS = $WIN_NATIVE_GCC_FLAGS"
 

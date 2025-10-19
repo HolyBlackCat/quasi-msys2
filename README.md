@@ -104,6 +104,8 @@ Here's how it works:
   ```
   This adds MSYS2 packages to `PATH`, and sets some environment variables. For non-interactive use, see [this](#how-do-i-run-commands-non-interactively).
 
+  **NOTE:** You must restart this script if you install/uninstall any compilers in quasi-msys2 and/or natively.
+
 * Build:
   * Manually:
     ```bash
@@ -269,7 +271,7 @@ We support the following compilers. By default we pick the first one that works 
 
   In general, this is more finicky than Clang. Prefer the native Clang if possible.
 
-  **NOTE:** The behavior depends on whether you also install GCC in MSYS2 or not. It's better not to by default, if you want to use the native MinGW GCC. If MSYS2 GCC is installed, we'll use the standard library from MSYS2 GCC instead of the one from your native GCC (we're forced to, because otherwise both will be in the search path and will conflict). This sounds a bit sketchy, especially so if the GCC versions don't match (in theory, judging by the directory names, the full X.Y.Z version number must match, but it remains to be seen how important this is).
+  **NOTE:** The behavior depends on whether you also install `_gcc` in quasi-msys2 or not. It's better not to by default, if you want to use the native MinGW GCC. If MSYS2 GCC is installed, we'll use the standard library from MSYS2 GCC instead of the one from your native GCC (we're forced to, because otherwise both will be in the search path and will conflict). This sounds a bit sketchy, especially so if the GCC versions don't match (in theory, judging by the directory names, the full X.Y.Z version number must match, but it remains to be seen how important this is).
 
   **NOTE:** Even if you uninstall MSYS2 GCC as suggested, the version mismatch of the native MinGW GCC vs MSYS2 GCC (that you now don't have installed, but that was used to build the third-party libraries you download from quasi-msys2) can still cause issues.
 

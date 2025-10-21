@@ -275,7 +275,7 @@ __dummy_func() {
                         # I'm not sure if this needs to be a hard error. I know the version mismatch is an issue for Clang, but what about GCC?
                         # It's SOMETIMES an issue for GCC, but I don't know the exact conditions.
                         # Not using the MSYS2 resource dir isn't an option if MSYS2 GCC is installed (see above), so whatever?
-                        echo "    $warn""Native MinGW GCC version doesn't match the version installed in MSYS2. This can cause issues. Consider uninstalling MSYS2 GCC completely."
+                        echo "    $warn""Native MinGW GCC version doesn't match the version installed in MSYS2. This will cause issues. Consider uninstalling MSYS2 GCC completely."
                     fi
 
                     # For some reason `--sysroot` has some other meaning for GCC than for Clang. It doesn't affect the library and include paths.
@@ -286,12 +286,17 @@ __dummy_func() {
                     # All this seems to work regardless of `-I` vs `-isystem`, so the latter is probably better. It also takes precedence over user-specified `-I`
                     #   for the same directories, as documented by GCC (so the user can't search those headers earlier by passing them to `-I`).
                     export WIN_NATIVE_GCC_FLAGS="-nostdinc"
-                    export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver"
-                    export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver/$MSYSTEM_CHOST"
-                    export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver/backward"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/lib/gcc/$MSYSTEM_CHOST/$msys2_gcc_ver/include"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/lib/gcc/$MSYSTEM_CHOST/$msys2_gcc_ver/include-fixed"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include"
+
+                    # Extra custom includes for C++. They must be PREPENDED to `WIN_NATIVE_GCC_FLAGS` to work correctly.
+                    # This means that our wrappers don't behave entirely correctly, as the C wrapper will choke on C++ code, but I don't see how this can be fixed.
+                    if [[ ! -v WIN_NATIVE_GCC_FLAGS_CXX ]]; then
+                        export WIN_NATIVE_GCC_FLAGS_CXX="-isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver"
+                        export WIN_NATIVE_GCC_FLAGS_CXX+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver/$MSYSTEM_CHOST"
+                        export WIN_NATIVE_GCC_FLAGS_CXX+=" -isystem$MSYSTEM_PREFIX/include/c++/$msys2_gcc_ver/backward"
+                    fi
 
                     # Here we don't add the native mingw library directory, and let it be overridden by `$MSYSTEM_PREFIX/lib`.
                     # This is known to cause problems on certain mingw version mismatches, but I assume better this than having mismatched headers and libraries? Not sure.
@@ -299,30 +304,54 @@ __dummy_func() {
                 else
                     echo "    MSYS2 GCC is not installed. Will use the standard library from the system MinGW GCC. This is not an error, and is usually a good idea if you're planning to use the native MinGW GCC."
 
-                    export WIN_NATIVE_GCC_FLAGS="-isystem$MSYSTEM_PREFIX/include"
+                    # Guess the GCC sysroot. We'll need this later.
+                    # We can't use the binary location for this, since on Fedora it's in a different place.
+                    # And Fedora seems to be the only distro with this sysroot in a weird location, see: https://packages.fedoraproject.org/pkgs/mingw-gcc/mingw32-gcc-c++/fedora-43.html#files
+                    if [[ -v WIN_NATIVE_GCC_SYSROOT ]]; then
+                        echo "    WIN_NATIVE_GCC_SYSROOT = $WIN_NATIVE_GCC_SYSROOT (overridden by the user)"
+                    elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw" ]]; then
+                        # Fedora style.
+                        export "WIN_NATIVE_GCC_SYSROOT=/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw"
+                        echo "    WIN_NATIVE_GCC_SYSROOT = $WIN_NATIVE_GCC_SYSROOT (Fedora style)"
+                    elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST" ]]; then
+                        # Arch and Ubuntu.
+                        export "WIN_NATIVE_GCC_SYSROOT=/usr/$WIN_NATIVE_GCC_CHOST"
+                        echo "    WIN_NATIVE_GCC_SYSROOT = $WIN_NATIVE_GCC_SYSROOT"
+                    else
+                        echo "    $warn""Unable to determine the sysroot directory used by your native MinGW GCC. This will cause issues. Please report this. You can override this directory by setting \`WIN_NATIVE_GCC_SYSROOT\`."
+                    fi
+
+
+                    # Assemble the flags:
+
+                    export WIN_NATIVE_GCC_FLAGS=""
+                    # The C++-specific flags remain empty in this configuration.
+                    export WIN_NATIVE_GCC_FLAGS_CXX=""
+
+                    # Force add the stock include directory before our `-isystem$MSYSTEM_PREFIX/include`.
+                    # Failing to do this causes breakage e.g. when `pthread.h` is installed in msys2 and gets included before the native mingw one.
+                    # You can check that with `-H`, but here's a testcase that breaks on Ubuntu with `win-g++` if you don't do this:
+                    #     #include <thread>
+                    #     int main() {std::this_thread::sleep_for(std::chrono::nanoseconds(100));}
+                    if [[ $WIN_NATIVE_GCC_SYSROOT ]]; then
+                        export WIN_NATIVE_GCC_FLAGS+=" -isystem$WIN_NATIVE_GCC_SYSROOT/include"
+                    fi
+
+                    # Add our own include directory. This is where libraries come from.
+                    export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include"
 
                     # Prepend the native mingw library directory, because the native mingw gcc might not be compatible with certain basic runtime libraries from MSYS2.
                     # The directory depends on the distro, so we make it customizable.
                     # This must before `-L$MSYSTEM_PREFIX/lib` to have priority over it.
-                    if [[ -v WIN_NATIVE_GCC_LIB_DIR ]]; then
-                        echo "    WIN_NATIVE_GCC_LIB_DIR = $WIN_NATIVE_GCC_LIB_DIR (overridden by the user)"
-                    elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw/lib" ]]; then
-                        # Fedora style.
-                        export "WIN_NATIVE_GCC_LIB_DIR=/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw/lib"
-                    elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST/lib" ]]; then
-                        # Arch and Ubuntu.
-                        export "WIN_NATIVE_GCC_LIB_DIR=/usr/$WIN_NATIVE_GCC_CHOST/lib"
-                    else
-                        echo "    $warn""Unable to determine the library directory used by your native MinGW GCC. This can cause issues. Please report this. You can override this directory by setting \`WIN_NATIVE_GCC_LIB_DIR\`."
-                    fi
-                    if [[ $WIN_NATIVE_GCC_LIB_DIR ]]; then
-                        export WIN_NATIVE_GCC_FLAGS+=" -L$WIN_NATIVE_GCC_LIB_DIR"
+                    if [[ $WIN_NATIVE_GCC_SYSROOT ]]; then
+                        export WIN_NATIVE_GCC_FLAGS+=" -L$WIN_NATIVE_GCC_SYSROOT/lib"
                     fi
 
                     export WIN_NATIVE_GCC_FLAGS+=" -L$MSYSTEM_PREFIX/lib"
                 fi
             fi
-            echo "    WIN_NATIVE_GCC_FLAGS = $WIN_NATIVE_GCC_FLAGS"
+            echo "    WIN_NATIVE_GCC_FLAGS     = $WIN_NATIVE_GCC_FLAGS"
+            echo "    WIN_NATIVE_GCC_FLAGS_CXX = ${WIN_NATIVE_GCC_FLAGS_CXX:-\"\"}"
 
             # Successfully found a native GCC.
             echo "    Found!"
@@ -334,6 +363,7 @@ __dummy_func() {
             unset WIN_NATIVE_GCC_CXX
             unset WIN_NATIVE_GCC_LD
             unset WIN_NATIVE_GCC_FLAGS
+            unset WIN_NATIVE_GCC_FLAGS_CXX
             unset WIN_NATIVE_GCC_WINDRES
             unset WIN_NATIVE_GCC_AR
             unset WIN_NATIVE_GCC_RANLIB

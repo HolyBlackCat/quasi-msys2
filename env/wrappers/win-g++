@@ -1,3 +1,4 @@
 #!/bin/sh
 set -u
-exec "$WIN_NATIVE_GCC_CXX" $WIN_NATIVE_GCC_FLAGS "$@"
+# Here `WIN_NATIVE_GCC_FLAGS_CXX` must be prepended to the other flags.
+exec "$WIN_NATIVE_GCC_CXX" $WIN_NATIVE_GCC_FLAGS_CXX $WIN_NATIVE_GCC_FLAGS "$@"

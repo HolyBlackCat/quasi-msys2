@@ -312,45 +312,43 @@ __dummy_func() {
                     elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw" ]]; then
                         # Fedora style.
                         export "WIN_NATIVE_GCC_SYSROOT=/usr/$WIN_NATIVE_GCC_CHOST/sys-root/mingw"
-                        echo "    WIN_NATIVE_GCC_SYSROOT = $WIN_NATIVE_GCC_SYSROOT (Fedora style)"
                     elif [[ -d "/usr/$WIN_NATIVE_GCC_CHOST" ]]; then
                         # Arch and Ubuntu.
                         export "WIN_NATIVE_GCC_SYSROOT=/usr/$WIN_NATIVE_GCC_CHOST"
-                        echo "    WIN_NATIVE_GCC_SYSROOT = $WIN_NATIVE_GCC_SYSROOT"
                     else
                         echo "    $warn""Unable to determine the sysroot directory used by your native MinGW GCC. This will cause issues. Please report this. You can override this directory by setting \`WIN_NATIVE_GCC_SYSROOT\`."
                     fi
 
-
                     # Assemble the flags:
 
-                    export WIN_NATIVE_GCC_FLAGS=""
-                    # The C++-specific flags remain empty in this configuration.
-                    export WIN_NATIVE_GCC_FLAGS_CXX=""
-
-                    # Force add the stock include directory before our `-isystem$MSYSTEM_PREFIX/include`.
-                    # Failing to do this causes breakage e.g. when `pthread.h` is installed in msys2 and gets included before the native mingw one.
-                    # You can check that with `-H`, but here's a testcase that breaks on Ubuntu with `win-g++` if you don't do this:
+                    # Force add the stock include directories before ours. Those stock directories are non-trivial and seem to depend on the distro,
+                    #   so we ask the compiler for them.
+                    # Here are some test programs that show that all this are necessary:
+                    # 1.
                     #     #include <thread>
                     #     int main() {std::this_thread::sleep_for(std::chrono::nanoseconds(100));}
-                    if [[ $WIN_NATIVE_GCC_SYSROOT ]]; then
-                        export WIN_NATIVE_GCC_FLAGS+=" -isystem$WIN_NATIVE_GCC_SYSROOT/include"
+                    # 2.
+                    #     #include <string>
+                    [[ -v WIN_NATIVE_GCC_FLAGS_CC  ]] || export WIN_NATIVE_GCC_FLAGS_CC="$(LANG=  "$WIN_NATIVE_GCC_CC"  -xc   - </dev/null -E -P -v 2>&1 | gawk '/^#include <\.\.\.> search starts here:$/ {x=1;first=1; next} x&&/^End of search list.$/{exit first} x&&/^ /{first=0; gsub(/^\s*/,""); "realpath " $0 | getline y; printf "%s-isystem%s",space,y; space=" "}')"
+                    [[ -v WIN_NATIVE_GCC_FLAGS_CXX ]] || export WIN_NATIVE_GCC_FLAGS_CXX="$(LANG= "$WIN_NATIVE_GCC_CXX" -xc++ - </dev/null -E -P -v 2>&1 | gawk '/^#include <\.\.\.> search starts here:$/ {x=1;first=1; next} x&&/^End of search list.$/{exit first} x&&/^ /{first=0; gsub(/^\s*/,""); "realpath " $0 | getline y; printf "%s-isystem%s",space,y; space=" "}')"
+
+                    if [[ ! -v WIN_NATIVE_GCC_FLAGS ]]; then
+                        # Add our own include directory. This is where libraries come from.
+                        export WIN_NATIVE_GCC_FLAGS="-isystem$MSYSTEM_PREFIX/include"
+
+                        # Prepend the native mingw library directory, because the native mingw gcc might not be compatible with certain basic runtime libraries from MSYS2.
+                        # The directory depends on the distro, so we make it customizable.
+                        # This must before `-L$MSYSTEM_PREFIX/lib` to have priority over it.
+                        if [[ $WIN_NATIVE_GCC_SYSROOT ]]; then
+                            export WIN_NATIVE_GCC_FLAGS+=" -L$WIN_NATIVE_GCC_SYSROOT/lib"
+                        fi
+
+                        export WIN_NATIVE_GCC_FLAGS+=" -L$MSYSTEM_PREFIX/lib"
                     fi
-
-                    # Add our own include directory. This is where libraries come from.
-                    export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include"
-
-                    # Prepend the native mingw library directory, because the native mingw gcc might not be compatible with certain basic runtime libraries from MSYS2.
-                    # The directory depends on the distro, so we make it customizable.
-                    # This must before `-L$MSYSTEM_PREFIX/lib` to have priority over it.
-                    if [[ $WIN_NATIVE_GCC_SYSROOT ]]; then
-                        export WIN_NATIVE_GCC_FLAGS+=" -L$WIN_NATIVE_GCC_SYSROOT/lib"
-                    fi
-
-                    export WIN_NATIVE_GCC_FLAGS+=" -L$MSYSTEM_PREFIX/lib"
                 fi
             fi
-            echo "    WIN_NATIVE_GCC_FLAGS     = $WIN_NATIVE_GCC_FLAGS"
+            echo "    WIN_NATIVE_GCC_FLAGS     = ${WIN_NATIVE_GCC_FLAGS:-\"\"}"
+            echo "    WIN_NATIVE_GCC_FLAGS_CC  = ${WIN_NATIVE_GCC_FLAGS_CC:-\"\"}"
             echo "    WIN_NATIVE_GCC_FLAGS_CXX = ${WIN_NATIVE_GCC_FLAGS_CXX:-\"\"}"
 
             # Successfully found a native GCC.
@@ -363,6 +361,7 @@ __dummy_func() {
             unset WIN_NATIVE_GCC_CXX
             unset WIN_NATIVE_GCC_LD
             unset WIN_NATIVE_GCC_FLAGS
+            unset WIN_NATIVE_GCC_FLAGS_CC
             unset WIN_NATIVE_GCC_FLAGS_CXX
             unset WIN_NATIVE_GCC_WINDRES
             unset WIN_NATIVE_GCC_AR

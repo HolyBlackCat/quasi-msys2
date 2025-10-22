@@ -290,6 +290,9 @@ __dummy_func() {
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/lib/gcc/$MSYSTEM_CHOST/$msys2_gcc_ver/include-fixed"
                     export WIN_NATIVE_GCC_FLAGS+=" -isystem$MSYSTEM_PREFIX/include"
 
+                    # This is empty, but we must set it, or `win-gcc` will error.
+                    export WIN_NATIVE_GCC_FLAGS_CC=
+
                     # Extra custom includes for C++. They must be PREPENDED to `WIN_NATIVE_GCC_FLAGS` to work correctly.
                     # This means that our wrappers don't behave entirely correctly, as the C wrapper will choke on C++ code, but I don't see how this can be fixed.
                     if [[ ! -v WIN_NATIVE_GCC_FLAGS_CXX ]]; then

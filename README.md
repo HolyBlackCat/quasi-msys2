@@ -273,7 +273,7 @@ We support the following compilers. By default we pick the first one that works 
 
   **NOTE:** Even if you uninstall MSYS2 GCC as suggested, the version mismatch of the native MinGW GCC vs MSYS2 GCC (that you now don't have installed, but that was used to build the third-party libraries you download from quasi-msys2) can still cause issues.
 
-  **NOTE:** Avoid installing any prebuilt third-party libraries for MinGW from your distro's package manager (those are rare, I only know about Fedora shipping some), as those will have precedence over the ones installed in quasi-msys2. (Currently this only matters if MSYS2 GCC is not installed, see above.)
+  **NOTE:** Avoid installing any prebuilt third-party libraries for MinGW from your distro's package manager (those are rare, I only know about Fedora shipping some), as those will have precedence over the ones installed in quasi-msys2.
 
   Which package to install:
 

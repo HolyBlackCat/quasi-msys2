@@ -134,15 +134,22 @@ override quote = '$(subst ','"'"',$1)'
 override repeat_n_times = $(call repeat_n_times_,$1,$2,)
 override repeat_n_times_ = $(if $(filter $1,$(words $3)),,$2 $(call repeat_n_times_,$1,$2,$3 x))
 
-ifeq ($(filter --trace,$(MAKEFLAGS)),)
+# Prints $1 to stderr.
+# Not using the shell functions below, because they themselves rely on this for logging.
+override print_log = $(call,$(shell echo >&2 $(call quote,$1)))
+
+# This is a variable to allow overriding it separately, without the entire `--trace`, which breaks our package database operations.
+__trace_shell := $(if $(filter --trace,$(MAKEFLAGS)),1)
+ifeq ($(__trace_shell),)
 # Same as `$(shell ...)`, but triggers a error on failure.
 override safe_shell = $(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
 # Same as `$(shell ...)`, expands to the shell status code rather than the command output.
 override shell_status = $(call,$(shell $1))$(.SHELLSTATUS)
 else
 # Same functions but with logging.
-override safe_shell = $(info Shell command: $1)$(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
-override shell_status = $(info Shell command: $1)$(call,$(shell $1))$(.SHELLSTATUS)$(info Exit code: $(.SHELLSTATUS))
+# We need `print_log` instead of `info` here because the database operations need a clean stdout, and their stdout doesn't get printed to the terminal anyway.
+override safe_shell = $(call print_log,Shell command: $1)$(shell $1)$(if $(filter-out 0,$(.SHELLSTATUS)),$(error Unable to execute `$1`, exit code $(.SHELLSTATUS)))
+override shell_status = $(call print_log,Shell command: $1)$(call,$(shell $1))$(.SHELLSTATUS)$(call print_log,Exit code: $(.SHELLSTATUS))
 endif
 
 # Same as `safe_shell`, but discards the output and expands to nothing.
@@ -168,9 +175,6 @@ override wget_progress_flag = $(if $(__wget_progress_flag),,$(call var,__wget_pr
 # Need `1>&2` to see the progressbar in wget2. Seems to have no effect on wget1.
 # Note `$(WGET_NUM_RETRIES) 10`, this caps the number of retries if `WGET_NUM_RETRIES` is not a number.
 override use_wget = $(filter-out 0,$(call shell_status,$(call repeat_n_times,$(WGET_NUM_RETRIES) 10,wget $(call quote,$1) $(if $(call boolean,WGET_ALLOW_DEFAULT_FLAGS),-c $(wget_progress_flag)) $(if $(WGET_TIMEOUT_SEC),--timeout=$(WGET_TIMEOUT_SEC)) $(WGET_FLAGS) -O $(call quote,$2) 1>&2 ||) (rm -f $(call quote,$2) && false)))
-
-# Prints $1 to stderr.
-override print_log = $(call safe_shell_exec,echo >&2 $(call quote,$1))
 
 # Removes the last occurence of $1 in $2, and everything that follows.
 # $2 has to contain no spaces (same for $1).
@@ -281,7 +285,7 @@ override __sig_check_gpgv_installed_once := 1
 # $2 is the signature.
 override sig_verify = \
 	$(sig_check_gpgv_installed)\
-	$(if $(filter-out 0,$(call shell_status,LANG= gpgv --keyring ./$(call quote,$(sig_keyring_path)) $(call quote,$2) $(call quote,$1) $(if $(filter --trace,$(MAKEFLAGS)),,>/dev/null 2>/dev/null))),\
+	$(if $(filter-out 0,$(call shell_status,LANG= gpgv --keyring ./$(call quote,$(sig_keyring_path)) $(call quote,$2) $(call quote,$1) $(if $(__trace_shell),,>/dev/null 2>/dev/null))),\
 		$(error Signature check failed!$(lf)File: $1$(lf)Signature: $2$(lf)Try again with `--trace` to see GPG output)\
 	)
 
@@ -495,7 +499,9 @@ endif
 
 # Invokes make with $1 parameters, and returns the result.
 # `MAKEFLAGS=` is required here, otherwise `--trace` breaks this function, because it changes its output.
-override invoke_database_process = $(call safe_shell,MAKEFLAGS= $(MAKE) $(MAKEOVERRIDES) -r $1)
+# Here we explicitly pass `__trace_shell` in case it was implicitly set to `1` because of `--trace`. And `--trace` itself doesn't get propagated, because it breaks things.
+# I also filter it out from `MAKEOVERRIDES` just to get a cleaner command line, because otherwise it could get repeated twice.
+override invoke_database_process = $(call safe_shell,MAKEFLAGS= $(MAKE) $(filter-out __trace_shell=%,$(MAKEOVERRIDES)) $(if $(__trace_shell),__trace_shell=1) -r $1)
 
 # Serves as the query parameter.
 __packages = $(error The parameter `__packages` is not set)

@@ -251,11 +251,11 @@ We support the following compilers. By default we pick the first one that works 
 
   You have to install a compiler in quasi-msys2 for this to work, just to provide the basic libraries. `make install _gcc` in most [environments](#how-do-i-use-different-msys2-environments), or `make install _clang` in `CLANG64` environment.
 
-  We're using the LLD linker by default, so that should be installed too, but in theory you can configure Clang to use something else.
+  We're using the LLD linker by default, so that should be installed too (natively, not in quasi-msys2), but in theory you can configure Clang to use something else.
 
-  We need the `llvm` package (as opposed to Clang and LLD) solely for `llvm-windres`. If you don't need Windres, you can skip it.
+  It's recommended to also install LLVM (which can be a separate package from Clang and LLD) for some extra utilities that we can use, such as `llvm-windres` and `llvm-ar`. If you don't need those, you can skip it.
 
-  If using the `CLANG64` [environment](#how-do-i-use-different-msys2-environments), the major version of the native Clang you have must match the version of MSYS2 Clang you installed in quasi-msys2. And remember that like in MSYS2, in quasi-msys2 there is no simple way to install an outdated package unless you backed up `database.mk` package database from before the update; so it's easier to change the system Clang version to match, this is easiest to do on Ubuntu/Debian since https://apt.llvm.org/ lets you freely choose the version.
+  If using the `CLANG64` [environment](#how-do-i-use-different-msys2-environments), the major version of the native Clang you have must match the version of MSYS2 Clang you installed in quasi-msys2. And remember that like in MSYS2, in quasi-msys2 there is no simple way to install an outdated package unless you backed up `database.mk` package database from before the update; so it's easier to change the native Clang version to match, this is easiest to do on Ubuntu/Debian since https://apt.llvm.org/ lets you freely choose the version.
 
   * You can set `WIN_NATIVE_CLANG_FLAGS` to customize what flags are passed to your native Clang. We print the guessed flags when initializing `env/shell.sh`.
 

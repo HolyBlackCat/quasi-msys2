@@ -1,0 +1,35 @@
+#!/bin/bash
+set -u
+
+# If you edit this file, make sure you don't break `win-clang-scan-deps --help` in the process.
+
+__out_args=()
+__before_dash_dash=1
+__at_dash_dash=
+
+for __in_arg in "$@"
+do
+    if [[ $__at_dash_dash ]]; then
+        __at_dash_dash=
+        __out_args+=(-- $__in_arg --start-no-unused-arguments $WIN_NATIVE_CLANG_FLAGS --end-no-unused-arguments)
+        continue
+    elif [[ $__before_dash_dash ]]; then
+        if [[ $__in_arg == "--" ]]; then
+            __before_dash_dash=
+            __at_dash_dash=1
+            continue
+        elif [[ $__in_arg == -compilation-database || $__in_arg == -compilation-database=* ]]; then
+            echo 'win-clang-scan-deps: quasi-msys2: `-compilation-database` is not implemented yet. Only `win-clang-scan-deps X -- Y` is implemented.' >&2
+            exit 1
+        fi
+    fi
+    __out_args+=("$__in_arg")
+done
+
+if [[ $__at_dash_dash ]]; then
+    # We don't need to error on this, let `clang-scan-deps` error for us.
+    echo 'win-clang-scan-deps: quasi-msys2: `--` should be immediately followed by a compiler name.' >&2
+    __out_args+=(--)
+fi
+
+exec "$WIN_NATIVE_CLANG_SCAN_DEPS" "${__out_args[@]}"

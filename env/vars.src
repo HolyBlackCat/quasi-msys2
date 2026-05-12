@@ -82,12 +82,13 @@ __dummy_func() {
         export "WIN_NATIVE_CLANG_CC=clang$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_CXX=clang++$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_LD=ld.lld$WIN_NATIVE_CLANG_VER"
-        # I could swear the version suffix was needed here at some point, but currently Clang seems to add it on its own.
+        # The version suffix was needed here at some point (at least in Clang 18), but currently Clang (at least Clang 22) seems to add it on its own.
         # Adding it manually breaks LTO, which seems to be a bug: https://github.com/llvm/llvm-project/issues/161040
         export "WIN_NATIVE_CLANG_USE_LD=lld"
         export "WIN_NATIVE_CLANG_WINDRES=llvm-windres$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_AR=llvm-ar$WIN_NATIVE_CLANG_VER"
         export "WIN_NATIVE_CLANG_RANLIB=llvm-ranlib$WIN_NATIVE_CLANG_VER"
+        export "WIN_NATIVE_CLANG_SCAN_DEPS=clang-scan-deps$WIN_NATIVE_CLANG_VER"
     fi
     if which "$WIN_NATIVE_CLANG_CC" >/dev/null 2>/dev/null; then # Only checking the C compiler. C++ support is optional.
         if ! which "$WIN_NATIVE_CLANG_CXX" >/dev/null 2>/dev/null; then
@@ -100,21 +101,23 @@ __dummy_func() {
         fi
 
         # If MSYS2 Clang is installed, switch to absolute paths.
-        [[ -f "$MSYSTEM_PREFIX/bin/clang.exe" ]] && export "WIN_NATIVE_CLANG_CC=$(which $WIN_NATIVE_CLANG_CC)"
-        [[ -f "$MSYSTEM_PREFIX/bin/clang++.exe" ]] && export "WIN_NATIVE_CLANG_CXX=$(which $WIN_NATIVE_CLANG_CXX)"
-        [[ -f "$MSYSTEM_PREFIX/bin/ld.lld.exe" ]] && export "WIN_NATIVE_CLANG_LD=$(which $WIN_NATIVE_CLANG_LD)"
+        [[ -f "$MSYSTEM_PREFIX/bin/clang.exe" ]] && export "WIN_NATIVE_CLANG_CC=$(which "$WIN_NATIVE_CLANG_CC")"
+        [[ -f "$MSYSTEM_PREFIX/bin/clang++.exe" ]] && export "WIN_NATIVE_CLANG_CXX=$(which "$WIN_NATIVE_CLANG_CXX")"
+        [[ -f "$MSYSTEM_PREFIX/bin/ld.lld.exe" ]] && export "WIN_NATIVE_CLANG_LD=$(which "$WIN_NATIVE_CLANG_LD")"
         # Don't touch `WIN_NATIVE_CLANG_USE_LD` here, it can't be an absolute path!
-        [[ -f "$MSYSTEM_PREFIX/bin/llvm-windres.exe" ]] && export "WIN_NATIVE_CLANG_WINDRES=$(which $WIN_NATIVE_CLANG_WINDRES)"
-        [[ -f "$MSYSTEM_PREFIX/bin/llvm-ar.exe" ]] && export "WIN_NATIVE_CLANG_AR=$(which $WIN_NATIVE_CLANG_AR)"
-        [[ -f "$MSYSTEM_PREFIX/bin/llvm-ranlib.exe" ]] && export "WIN_NATIVE_CLANG_RANLIB=$(which $WIN_NATIVE_CLANG_RANLIB)"
+        [[ -f "$MSYSTEM_PREFIX/bin/llvm-windres.exe" ]] && export "WIN_NATIVE_CLANG_WINDRES=$(which "$WIN_NATIVE_CLANG_WINDRES")"
+        [[ -f "$MSYSTEM_PREFIX/bin/llvm-ar.exe" ]] && export "WIN_NATIVE_CLANG_AR=$(which "$WIN_NATIVE_CLANG_AR")"
+        [[ -f "$MSYSTEM_PREFIX/bin/llvm-ranlib.exe" ]] && export "WIN_NATIVE_CLANG_RANLIB=$(which "$WIN_NATIVE_CLANG_RANLIB")"
+        [[ -f "$MSYSTEM_PREFIX/bin/clang-scan-deps.exe" ]] && export "WIN_NATIVE_CLANG_SCAN_DEPS=$(which "$WIN_NATIVE_CLANG_SCAN_DEPS")"
 
-        echo "    WIN_NATIVE_CLANG_CC      = $WIN_NATIVE_CLANG_CC"
-        echo "    WIN_NATIVE_CLANG_CXX     = $WIN_NATIVE_CLANG_CXX"
-        echo "    WIN_NATIVE_CLANG_LD      = $WIN_NATIVE_CLANG_LD"
-        echo "    WIN_NATIVE_CLANG_USE_LD  = $WIN_NATIVE_CLANG_USE_LD"
-        echo "    WIN_NATIVE_CLANG_WINDRES = $WIN_NATIVE_CLANG_WINDRES"
-        echo "    WIN_NATIVE_CLANG_AR      = $WIN_NATIVE_CLANG_AR"
-        echo "    WIN_NATIVE_CLANG_RANLIB  = $WIN_NATIVE_CLANG_RANLIB"
+        echo "    WIN_NATIVE_CLANG_CC        = $WIN_NATIVE_CLANG_CC"
+        echo "    WIN_NATIVE_CLANG_CXX       = $WIN_NATIVE_CLANG_CXX"
+        echo "    WIN_NATIVE_CLANG_LD        = $WIN_NATIVE_CLANG_LD"
+        echo "    WIN_NATIVE_CLANG_USE_LD    = $WIN_NATIVE_CLANG_USE_LD"
+        echo "    WIN_NATIVE_CLANG_WINDRES   = $WIN_NATIVE_CLANG_WINDRES"
+        echo "    WIN_NATIVE_CLANG_AR        = $WIN_NATIVE_CLANG_AR"
+        echo "    WIN_NATIVE_CLANG_RANLIB    = $WIN_NATIVE_CLANG_RANLIB"
+        echo "    WIN_NATIVE_CLANG_SCAN_DEPS = $WIN_NATIVE_CLANG_SCAN_DEPS"
 
         # Warn if MSYS2 GCC (or Clang, for CLANG* environments) is not installed.
         if [[ $MSYSTEM != CLANG* ]]; then
@@ -175,6 +178,7 @@ __dummy_func() {
             unset WIN_NATIVE_CLANG_WINDRES
             unset WIN_NATIVE_CLANG_AR
             unset WIN_NATIVE_CLANG_RANLIB
+            unset WIN_NATIVE_CLANG_SCAN_DEPS
         fi
     else
         # Couldn't find a native Clang.
@@ -187,6 +191,7 @@ __dummy_func() {
         unset WIN_NATIVE_CLANG_WINDRES
         unset WIN_NATIVE_CLANG_AR
         unset WIN_NATIVE_CLANG_RANLIB
+        unset WIN_NATIVE_CLANG_SCAN_DEPS
     fi
     # -------- Testing native GCC
     if [[ $MSYSTEM != CLANG* ]]; then
@@ -411,11 +416,15 @@ __dummy_func() {
     local suggested_ranlib=
     local suggested_ar_check=
     local suggested_ranlib_check=
+    local suggested_clang_scan_deps=
+    local suggested_clang_scan_deps_check=
     local suggested_host_cc="${CC-/usr/bin/cc}"
     local suggested_host_cxx="${CXX-/usr/bin/c++}"
     local suggested_host_ld="${LD-/usr/bin/ld}"
     local suggested_host_ar="${AR-/usr/bin/ar}"
     local suggested_host_ranlib="${AR-/usr/bin/ranlib}"
+    # In GCC environments we just keep this pointing at the default location, in case the user wants it.
+    local suggested_host_clang_scan_deps="${CLANG_SCAN_DEPS-/usr/bin/clang-scan-deps}"
 
     local want_native_windres=
     local suggested_native_windres=
@@ -440,8 +449,8 @@ __dummy_func() {
     local warn_msys2_compiler=
     if [[ $selected_compiler == native_clang ]]; then
         echo 'Native Clang'
-        local suggested_cc=win-clang
-        local suggested_cxx=win-clang++
+        [[ $WIN_NATIVE_CLANG_CC ]] && local suggested_cc=win-clang
+        [[ $WIN_NATIVE_CLANG_CXX ]] && local suggested_cxx=win-clang++
         local suggested_cc_check="$WIN_NATIVE_CLANG_CC"
         local suggested_cxx_check="$WIN_NATIVE_CLANG_CXX"
         local suggested_compiler_broken=$clang_is_broken
@@ -450,26 +459,34 @@ __dummy_func() {
         local suggested_host_ld="$WIN_NATIVE_CLANG_LD"
         local want_native_windres=1
         local suggested_native_windres="$WIN_NATIVE_CLANG_WINDRES"
-        local suggested_ar=win-llvm-ar
+        [[ $WIN_NATIVE_CLANG_AR ]] && local suggested_ar=win-llvm-ar
         local suggested_ar_check="$WIN_NATIVE_CLANG_AR"
-        local suggested_ranlib=win-llvm-ranlib
+        [[ $WIN_NATIVE_CLANG_RANLIB ]] && local suggested_ranlib=win-llvm-ranlib
         local suggested_ranlib_check="$WIN_NATIVE_CLANG_RANLIB"
         local suggested_host_ar="$WIN_NATIVE_CLANG_AR"
         local suggested_host_ranlib="$WIN_NATIVE_CLANG_RANLIB"
+        [[ $WIN_NATIVE_CLANG_SCAN_DEPS ]] && local suggested_clang_scan_deps=win-clang-scan-deps
+        local suggested_clang_scan_deps_check="$WIN_NATIVE_CLANG_SCAN_DEPS"
+        local suggested_host_clang_scan_deps="$WIN_NATIVE_CLANG_SCAN_DEPS"
     elif [[ $selected_compiler == native_gcc && $MSYSTEM != CLANG* ]]; then
         echo 'Native MinGW GCC'
-        local suggested_cc=win-gcc
-        local suggested_cxx=win-g++
+        [[ $WIN_NATIVE_GCC_CC ]] && local suggested_cc=win-gcc
+        [[ $WIN_NATIVE_GCC_CXX ]] && local suggested_cxx=win-g++
         local suggested_cc_check="$WIN_NATIVE_GCC_CC"
         local suggested_cxx_check="$WIN_NATIVE_GCC_CXX"
         local want_native_windres=1
         local suggested_native_windres="$WIN_NATIVE_GCC_WINDRES"
-        local suggested_ar=win-ar
+        [[ $WIN_NATIVE_GCC_AR ]] && local suggested_ar=win-ar
         local suggested_ar_check="$WIN_NATIVE_GCC_AR"
-        local suggested_ranlib=win-ranlib
+        [[ $WIN_NATIVE_GCC_RANLIB ]] && local suggested_ranlib=win-ranlib
         local suggested_ranlib_check="$WIN_NATIVE_GCC_RANLIB"
         # Not setting `suggested_host_ar` and `suggested_host_ranlib`, the native ones should work.
         # I've heard `gcc-ar` is no longer necessary, and right now we don't have separate variables for `ar` and `gcc-ar`, so it's easier to just use `ar`.
+        #
+        # Expose `clang-scan-deps` if it was found. Leave the host version defaulted though.
+        [[ $WIN_NATIVE_CLANG_SCAN_DEPS ]] && local suggested_clang_scan_deps=win-clang-scan-deps
+        local suggested_clang_scan_deps_check="$WIN_NATIVE_CLANG_SCAN_DEPS"
+        local suggested_host_clang_scan_deps="$WIN_NATIVE_CLANG_SCAN_DEPS"
     elif [[ $selected_compiler == msys2_clang ]]; then
         echo 'MSYS2 Clang'
         local warn_msys2_compiler=1
@@ -478,7 +495,9 @@ __dummy_func() {
         [[ -f "$MSYSTEM_PREFIX/bin/clang.exe" ]] || local suggested_compiler_broken=1
         [[ -f "$MSYSTEM_PREFIX/bin/llvm-ar.exe" ]] && local suggested_ar=llvm-ar
         [[ -f "$MSYSTEM_PREFIX/bin/llvm-ranlib.exe" ]] && local suggested_ranlib=llvm-ranlib
+        [[ -f "$MSYSTEM_PREFIX/bin/clang-scan-deps.exe" ]] && local suggested_clang_scan_deps=clang-scan-deps
         # Not setting `suggested_host_ar` and `suggested_host_ranlib`.
+        # Leaving `suggested_host_clang_scan_deps` as is, it should be set to `/usr/bin/clang-scan-deps`.
     elif [[ $selected_compiler == msys2_gcc && $MSYSTEM != CLANG* ]]; then
         echo 'MSYS2 GCC'
         local warn_msys2_compiler=1
@@ -572,8 +591,6 @@ __dummy_func() {
     fi
 
     # Select `ar`.
-    # Fow now we set `AR` directly to the desired executable, instead of to our `win-ar` wrapper. It looks a bit uncool,
-    #   but it's probably better this way, because it's faster to call directly.
     unset AR
     if [[ -v WIN_AR ]]; then
         export AR="$WIN_AR"
@@ -599,8 +616,6 @@ __dummy_func() {
     fi
 
     # Select `ranlib`.
-    # Fow now we set `RANLIB` directly to the desired executable, instead of to our `win-ranlib` wrapper. It looks a bit uncool,
-    #   but it's probably better this way, because it's faster to call directly.
     unset RANLIB
     if [[ -v WIN_RANLIB ]]; then
         export RANLIB="$WIN_RANLIB"
@@ -608,7 +623,7 @@ __dummy_func() {
         if [[ $suggested_ranlib && $suggested_ranlib_check ]] && ! which "$suggested_ranlib_check" >/dev/null 2>/dev/null; then
             local suggested_ranlib=
         fi
-        if [[ $suggested_ar ]]; then
+        if [[ $suggested_suggested_ranlib ]]; then
             export RANLIB="$suggested_ranlib"
         elif which /usr/bin/ranlib >/dev/null 2>/dev/null; then
             # The host `ranlib` should work fine.
@@ -623,6 +638,28 @@ __dummy_func() {
         echo "RANLIB = $RANLIB  (backend: WIN_NATIVE_GCC_RANLIB = $WIN_NATIVE_GCC_RANLIB)"
     else
         echo "RANLIB = $RANLIB"
+    fi
+
+    # Select `clang-scan-deps`.
+    unset CLANG_SCAN_DEPS
+    if [[ -v WIN_CLANG_SCAN_DEPS ]]; then
+        export CLANG_SCAN_DEPS="$WIN_CLANG_SCAN_DEPS"
+    else
+        if [[ $suggested_clang_scan_deps && $suggested_clang_scan_deps_check ]] && ! which "$suggested_clang_scan_deps_check" >/dev/null 2>/dev/null; then
+            local suggested_clang_scan_deps=
+        fi
+        if [[ $suggested_clang_scan_deps ]]; then
+            export CLANG_SCAN_DEPS="$suggested_clang_scan_deps"
+        else
+            echo "$warn"'No `clang-scan-deps`!'
+        fi
+    fi
+    if [[ $CLANG_SCAN_DEPS == win-llvm-ranlib ]]; then
+        echo "CLANG_SCAN_DEPS = $CLANG_SCAN_DEPS  (backend: WIN_NATIVE_CLANG_CLANG_SCAN_DEPS = $WIN_NATIVE_CLANG_CLANG_SCAN_DEPS)"
+    elif [[ $CLANG_SCAN_DEPS == win-ranlib ]]; then
+        echo "CLANG_SCAN_DEPS = $CLANG_SCAN_DEPS  (backend: WIN_NATIVE_GCC_CLANG_SCAN_DEPS = $WIN_NATIVE_GCC_CLANG_SCAN_DEPS)"
+    else
+        echo "CLANG_SCAN_DEPS = $CLANG_SCAN_DEPS"
     fi
 
 

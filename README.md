@@ -127,6 +127,12 @@ Here's how it works:
 
   * The only exception is `win-native-pkg-config` to access the native `pkg-config`, because we control pkg-config using environment variables rather than by providing a custom executable. (The `win-native-pkg-config` helper script simply unsets all pkg-config-related environment variables before running it.)
 
+### C++20 modules
+
+Modules seem to work, at least in CMake. Meson has no modules support at the time of writing.
+
+I provide a script called `win-clang-scan-deps` that wraps `clang-scan-deps` and adds the right flags. This usage is supported: `clang-scan-deps ... -- <compiler> ...` (which is what CMake does). This usage is not supported: `clang-scan-deps -compilation-database=__.json ...` (because it seems it would require me to patch the JSON, since I have no other way to inject my own flags). I don't think anyone actually needs the latter.
+
 ### Rust
 
 I try to support Rust for completeness, but the support is experimental.

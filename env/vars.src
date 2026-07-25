@@ -139,7 +139,9 @@ __dummy_func() {
             # `--sysroot` tells Clang where to look for a GCC/Clang installation.
             # `-pthread` tells is to link winpthread, since it doesn't happen automatically and some CMake scripts expect it.
             # `-fuse-ld=lld...` tells Clang to use the LLD linker.
-            # `-femulated-tls` is necessary when using libstdc++ atomics with Clang. Conversely, libc++ atomics need `-fno-emulated-tls`.
+            # `-femulated-tls` used to be necessary when using libstdc++ atomics with Clang (while libc++ atomics need `-fno-emulated-tls`).
+            #     MSYS2 says that it's no longer needed since their GCC 16: https://www.msys2.org/news/#2026-05-11-native-thread-local-storage-tls-with-gcc-16
+            #     I don't seem to get any errors with or without the flag now, but I'm changing it to `-fno-emulated-tls` since they say so.
             # `-rtlib`, `-unwindlib` - not sure about those, guessed experimentally to match what MSYS2 does.
             # `-resource-dir` - not sure if only needed on CLANG{32,64} environments, probably yes.
             if [[ ! -v WIN_NATIVE_CLANG_FLAGS ]]; then
@@ -147,7 +149,8 @@ __dummy_func() {
                 [[ $WIN_NATIVE_CLANG_USE_LD ]] && export "WIN_NATIVE_CLANG_FLAGS+= -fuse-ld=$WIN_NATIVE_CLANG_USE_LD"
                 if [[ $MSYSTEM != CLANG* ]]; then
                     # `-stdlib=libstdc++ -rtlib=libgcc` are used by default on my Ubuntu Clang, adding them just in case.
-                    export "WIN_NATIVE_CLANG_FLAGS+= -stdlib=libstdc++ -femulated-tls -rtlib=libgcc -unwindlib=libgcc"
+                    # `-fno-emulated-tls` is used by default on my Ubuntu Clang, adding it just in case.
+                    export "WIN_NATIVE_CLANG_FLAGS+= -stdlib=libstdc++ -fno-emulated-tls -rtlib=libgcc -unwindlib=libgcc"
                 else
                     # `-fno-emulated-tls` is used by default on my Ubuntu Clang, adding it just in case.
                     export "WIN_NATIVE_CLANG_FLAGS+= -stdlib=libc++ -fno-emulated-tls -rtlib=compiler-rt -unwindlib=libunwind"

@@ -165,7 +165,7 @@ __dummy_func() {
                     fi
                 fi
             fi
-            echo "    WIN_NATIVE_CLANG_FLAGS   = $WIN_NATIVE_CLANG_FLAGS"
+            echo "    WIN_NATIVE_CLANG_FLAGS     = $WIN_NATIVE_CLANG_FLAGS"
         fi
 
         if [[ $clang_is_broken == "" ]]; then

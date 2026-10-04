@@ -65,15 +65,22 @@ DIR := env/fake_bin
 override DIR := $(installation_root)/$(DIR)
 
 # This should give us the value of `MSYSTEM_PREFIX` from the main makefile.
+# Note that this always gets the hardcoded string, e.g. `/ucrt64`, without adding the installation path,
+#   unlike the env variable from `vars.src` with the same name.
+# We add the installation path below.
 MSYSTEM_PREFIX :=
 $(eval $(call safe_shell,make -C $(call quote,$(installation_root)) -pq | grep '^MSYSTEM_PREFIX\b'))
 $(if $(MSYSTEM_PREFIX),,$(error Can't obtain the value of `MSYSTEM_PREFIX`.))
 
 PATTERN := root$(MSYSTEM_PREFIX)/bin/*.exe
-override PATTERN := $(installation_root)/$(PATTERN)
+# Qt extras:
+# PATTERN += root$(MSYSTEM_PREFIX)/share/qt6/bin/*.exe
+
+# Add the full installation path to `PATTERN` entries.
+override PATTERN := $(addprefix $(installation_root)/,$(PATTERN))
 
 ifeq ($(shell which wine >/dev/null 2>/dev/null)$(.SHELLSTATUS),0)
-override wanted_list := $(filter-out $(final_blacklist),$(patsubst $(subst *,%,$(PATTERN)),%,$(wildcard $(PATTERN))))
+override wanted_list := $(foreach p,$(PATTERN),$(filter-out $(final_blacklist),$(patsubst $(subst *,%,$p),%,$(wildcard $p))))
 else
 $(info Not generating any wrappers because Wine is not installed.)
 override wanted_list :=
